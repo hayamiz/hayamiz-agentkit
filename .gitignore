@@ -1,2 +1,9 @@
 .devcontainer/claude-projects/
 .devcontainer/claude-sessions/
+
+# APM dependencies
+apm_modules/
+
+# APM-deployed skills and local Claude settings
+.claude/skills/
+.claude/settings.local.json
