@@ -129,6 +129,12 @@ RUN { \
       echo '  cp /host-pushover-token.sh "$HOME/.pushover_token.sh"'; \
       echo '  chmod 600 "$HOME/.pushover_token.sh"'; \
       echo 'fi'; \
+      echo ''; \
+      echo '# Ensure workspace .claude is owned by the user (bind mount creates it as root)'; \
+      echo 'if [ -n "${PWD:-}" ]; then'; \
+      echo "  sudo mkdir -p \"\$PWD/.claude\""; \
+      echo "  sudo chown -R ${USERNAME}:${USERNAME} \"\$PWD/.claude\""; \
+      echo 'fi'; \
     } > /usr/local/bin/devcontainer-post-start.sh \
     && chmod +x /usr/local/bin/devcontainer-post-start.sh
 
