@@ -1,5 +1,5 @@
 lockfile_version: '1'
-generated_at: '2026-04-19T07:22:21.593414+00:00'
+generated_at: '2026-04-19T18:31:09.624854+00:00'
 apm_version: 0.8.11
 dependencies:
 - repo_url: anthropics/skills
@@ -13,30 +13,7 @@ dependencies:
   content_hash: sha256:ad480cdd4a4b5886cb7d35c2055d4b9005babe15d80ace54d90f4259f3bf3257
 - repo_url: hayamiz/hayamiz-agentkit
   host: github.com
-  resolved_commit: 39c87b7879bccdc66f6c46e22ec0fb47089d7201
-  virtual_path: plugins/gardener
-  is_virtual: true
-  package_type: marketplace_plugin
-  deployed_files:
-  - .claude/skills/gardener
-  - .claude/skills/update-checklist
-  content_hash: sha256:9fc5621486d058975aa6ad93fd2c8401c68af8778d2fc8569e83a5b74c026310
-- repo_url: hayamiz/hayamiz-agentkit
-  host: github.com
-  resolved_commit: 39c87b7879bccdc66f6c46e22ec0fb47089d7201
-  virtual_path: plugins/ticket
-  is_virtual: true
-  package_type: marketplace_plugin
-  deployed_files:
-  - .claude/skills/ticket-check
-  - .claude/skills/ticket-create
-  - .claude/skills/ticket-fix
-  - .claude/skills/ticket-init
-  - .claude/skills/ticket-triage
-  content_hash: sha256:38e5b95ea956f37a4eb2545f7ddbd11a77762137cb99f1b250bdb99183524f39
-- repo_url: hayamiz/hayamiz-agentkit
-  host: github.com
-  resolved_commit: 39c87b7879bccdc66f6c46e22ec0fb47089d7201
+  resolved_commit: 817cfee7e24119a576e36fd4698ebeb95b1c6bb5
   virtual_path: skills/commit-all
   is_virtual: true
   package_type: claude_skill
@@ -45,7 +22,7 @@ dependencies:
   content_hash: sha256:1941be2793e07bf60889bd30f259bf9dc32188e0762e21b99acd302671bd620b
 - repo_url: hayamiz/hayamiz-agentkit
   host: github.com
-  resolved_commit: 39c87b7879bccdc66f6c46e22ec0fb47089d7201
+  resolved_commit: 817cfee7e24119a576e36fd4698ebeb95b1c6bb5
   virtual_path: skills/commit-session
   is_virtual: true
   package_type: claude_skill
