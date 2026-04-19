@@ -1,0 +1,8 @@
+{
+  "name": "ticket",
+  "description": "File-based, in-repo ticket workflow: init → create → check → triage → fix. Tickets are numbered Markdown files in the repository, separate from GitHub Issues.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Yuto Hayamizu"
+  }
+}
