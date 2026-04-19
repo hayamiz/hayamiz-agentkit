@@ -8,10 +8,6 @@ dependencies:
   - hayamiz/hayamiz-agentkit/skills/commit-all
   - hayamiz/hayamiz-agentkit/skills/commit-session
   - hayamiz/hayamiz-agentkit/plugins/gardener
-  - hayamiz/hayamiz-agentkit/skills/ticket-check
-  - hayamiz/hayamiz-agentkit/skills/ticket-create
-  - hayamiz/hayamiz-agentkit/skills/ticket-fix
-  - hayamiz/hayamiz-agentkit/skills/ticket-init
-  - hayamiz/hayamiz-agentkit/skills/ticket-triage
+  - hayamiz/hayamiz-agentkit/plugins/ticket
   mcp: []
 scripts: {}
