@@ -1,5 +1,5 @@
 ---
-name: ticket-create
+name: create
 description: "Create a new ticket in the project's ticket directory. Tickets are file-based, numbered work items tracked in the repository (distinct from GitHub Issues)."
 argument-hint: "<title or description>"
 allowed-tools: Bash(*) Read Write Glob Grep
@@ -7,7 +7,7 @@ allowed-tools: Bash(*) Read Write Glob Grep
 
 # Ticket Create
 
-Create a new ticket file in the project's **ticket directory** (a file-based, in-repo work-item tracker). Tickets are numbered Markdown files with YAML frontmatter. This family of skills (`ticket-create`, `ticket-check`, `ticket-triage`, `ticket-fix`) together manages the lifecycle of such tickets.
+Create a new ticket file in the project's **ticket directory** (a file-based, in-repo work-item tracker). Tickets are numbered Markdown files with YAML frontmatter. The `ticket` plugin (`/ticket:create`, `/ticket:check`, `/ticket:triage`, `/ticket:fix`) together manages the lifecycle of such tickets.
 
 ## Portability (maintainers, read this before editing)
 
@@ -25,9 +25,9 @@ These skills must remain project-agnostic. When updating this SKILL.md, do **not
 
 ### Step 2: Ensure `<ticket-dir>/CLAUDE.md` exists
 
-Read `<ticket-dir>/CLAUDE.md` — it defines the frontmatter schema, body structure, lifecycle, and triage-section format used by all four `ticket-*` skills.
+Read `<ticket-dir>/CLAUDE.md` — it defines the frontmatter schema, body structure, lifecycle, and triage-section format used by all four `ticket` plugin skills.
 
-If it does not exist, tell the user to run `/ticket-init` first — that skill handles project bootstrap (creating `<ticket-dir>`, writing `<ticket-dir>/CLAUDE.md`, declaring the path in the root `CLAUDE.md`, and migrating any legacy ticket-like directory). Stop here.
+If it does not exist, tell the user to run `/ticket:init` first — that skill handles project bootstrap (creating `<ticket-dir>`, writing `<ticket-dir>/CLAUDE.md`, declaring the path in the root `CLAUDE.md`, and migrating any legacy ticket-like directory). Stop here.
 
 Do **not** silently overwrite an existing `<ticket-dir>/CLAUDE.md`.
 
@@ -65,7 +65,7 @@ Print the created file path and a one-line summary of the ticket.
 
 ## Notes
 
-- Never write the ticket into any directory other than `<ticket-dir>/` (resolved tickets live under `<ticket-dir>/resolved/` and are moved there by `ticket-fix`, not here).
+- Never write the ticket into any directory other than `<ticket-dir>/` (resolved tickets live under `<ticket-dir>/resolved/` and are moved there by `/ticket:fix`, not here).
 - If the user's input already describes an existing ticket (same subject), warn them and ask whether to create a duplicate or update the existing one.
 - This skill is read-only with respect to source code — it only writes inside `<ticket-dir>/`.
-- Project bootstrap (creating `<ticket-dir>`, writing `<ticket-dir>/CLAUDE.md`, declaring the path in the root `CLAUDE.md`, migrating legacy ticket directories) is handled by `/ticket-init`. This skill assumes that step has already been done.
+- Project bootstrap (creating `<ticket-dir>`, writing `<ticket-dir>/CLAUDE.md`, declaring the path in the root `CLAUDE.md`, migrating legacy ticket directories) is handled by `/ticket:init`. This skill assumes that step has already been done.

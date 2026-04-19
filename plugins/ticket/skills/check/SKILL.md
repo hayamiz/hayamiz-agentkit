@@ -1,5 +1,5 @@
 ---
-name: ticket-check
+name: check
 description: "List all currently open tickets in the project's ticket directory. Read-only summary of file-based work items (distinct from GitHub Issues)."
 allowed-tools: Read Glob Grep
 ---
@@ -20,7 +20,7 @@ These skills must remain project-agnostic. When updating this SKILL.md, do **not
 2. If none is declared, default to `doc/tickets/`.
 3. Let `<ticket-dir>` denote the resolved path.
 
-If `<ticket-dir>` does not exist, report "No ticket directory found — run `/ticket-create` to bootstrap one." and stop.
+If `<ticket-dir>` does not exist, report "No ticket directory found — run `/ticket:init` to bootstrap one." and stop.
 
 ### Step 2: Collect non-resolved tickets
 
@@ -52,5 +52,5 @@ Below the table, show:
 
 ## Notes
 
-- This skill is read-only. Do not modify, move, or rewrite any ticket file, even to fix malformed frontmatter — report warnings and let the user or `/ticket-triage` address them.
+- This skill is read-only. Do not modify, move, or rewrite any ticket file, even to fix malformed frontmatter — report warnings and let the user or `/ticket:triage` address them.
 - Recognized status values default to `open`, `in-progress`, `blocked`, `resolved`. If `<ticket-dir>/CLAUDE.md` defines a different status vocabulary, honor that instead.

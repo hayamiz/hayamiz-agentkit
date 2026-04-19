@@ -1,5 +1,5 @@
 ---
-name: ticket-triage
+name: triage
 description: "Triage all open tickets in the project's ticket directory — classify by complexity, whether a mechanical fix is possible, and whether the fix needs a user decision."
 argument-hint: "[ticket-number]"
 allowed-tools: Bash(*) Read Edit Glob Grep
@@ -20,7 +20,7 @@ These skills must remain project-agnostic. When updating this SKILL.md, do **not
 1. Read the host repo's root `CLAUDE.md` (if present) for a declaration of the ticket directory. Default: `doc/tickets/`.
 2. Read `<ticket-dir>/CLAUDE.md` for the triage-section format and status vocabulary.
 
-If `<ticket-dir>/CLAUDE.md` is missing, instruct the user to run `/ticket-create` first (which bootstraps it) and stop.
+If `<ticket-dir>/CLAUDE.md` is missing, instruct the user to run `/ticket:init` first (which bootstraps it) and stop.
 
 ### Step 2: Collect tickets to triage
 
@@ -101,7 +101,7 @@ Show the user two tables:
 |--------|-------|----------|------------|-----------------|
 | #NNNN  | ...   | ...      | ...        | ...             |
 
-End with a one-line recommendation, e.g. "Run `/ticket-fix` to implement the N mechanically fixable tickets."
+End with a one-line recommendation, e.g. "Run `/ticket:fix` to implement the N mechanically fixable tickets."
 
 ## Notes
 

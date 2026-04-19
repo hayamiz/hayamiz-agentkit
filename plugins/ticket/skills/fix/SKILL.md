@@ -1,5 +1,5 @@
 ---
-name: ticket-fix
+name: fix
 description: "Implement fixes for all tickets triaged as mechanically fixable. Delegates each fix to a subagent, runs project-declared verification, and marks tickets resolved. Does not commit — use /commit-session afterwards."
 argument-hint: "[ticket-number]"
 allowed-tools: Bash(*) Read Edit Write Glob Grep
@@ -7,7 +7,7 @@ allowed-tools: Bash(*) Read Edit Write Glob Grep
 
 # Ticket Fix
 
-Implement fixes for open tickets that `ticket-triage` has marked as mechanically fixable (no user decision needed). Each fix is delegated to a subagent to keep the main conversation context lean. This skill **does not commit** — after resolution, use `/commit-session` to commit the changes.
+Implement fixes for open tickets that `/ticket:triage` has marked as mechanically fixable (no user decision needed). Each fix is delegated to a subagent to keep the main conversation context lean. This skill **does not commit** — after resolution, use `/commit-session` to commit the changes.
 
 ## Portability (maintainers, read this before editing)
 
@@ -37,7 +37,7 @@ List tickets in `<ticket-dir>/` that meet ALL of:
 
 If `$ARGUMENTS` contains a ticket number, narrow the set to just that ticket (and check it meets the criteria above; if not, tell the user why and stop).
 
-If open tickets exist but **none** have been triaged, tell the user to run `/ticket-triage` first and stop. Do not attempt to fix un-triaged tickets.
+If open tickets exist but **none** have been triaged, tell the user to run `/ticket:triage` first and stop. Do not attempt to fix un-triaged tickets.
 
 ### Step 3: Dispatch subagents (one per ticket)
 

@@ -9,13 +9,9 @@ with room to grow to other harnesses). Distributed via [APM](https://github.com/
 skills/                 Skill packages (one per directory, each with SKILL.md)
   commit-all/
   commit-session/
-  ticket-check/
-  ticket-create/
-  ticket-fix/
-  ticket-init/
-  ticket-triage/
 plugins/                Claude Code plugins (one per directory)
-  gardener/             Plugin with its own skills/, checklist files, etc.
+  gardener/             Repo-health audit plugin.
+  ticket/               File-based ticket workflow (init / create / check / triage / fix).
 apm.yml                 APM project manifest (this repo's own dependencies)
 apm.lock.yaml           APM resolved versions
 apm_modules/            APM install output (gitignored)
@@ -53,8 +49,9 @@ apm_modules/            APM install output (gitignored)
 - `/commit-session` — commit only the files changed in the current session,
   grouped into semantically coherent commits.
 - `/commit-all` — commit every dirty file, similarly grouped.
-- `/ticket-*` — file-based ticket workflow (`init`, `create`, `check`, `triage`,
-  `fix`). See each skill's `SKILL.md` for details.
+- `/ticket:init` / `/ticket:create` / `/ticket:check` / `/ticket:triage` /
+  `/ticket:fix` — file-based ticket workflow (provided by the `ticket` plugin).
+  See each skill's `SKILL.md` for details.
 - `/gardener` — repo health audit. Reference checklists live in
   `plugins/gardener/*.md`.
 
