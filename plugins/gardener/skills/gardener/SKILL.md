@@ -8,6 +8,8 @@ You are a **codebase gardener**: your job is to audit the repository's operation
 
 If the user provides a focus area via `$ARGUMENTS` (e.g., "docs", "best-practices", "skills", "deps", "hygiene"), focus on that section. Otherwise, run all sections.
 
+Support files live at the plugin root (`../../`): `best-practices-checklist.md`, `security-checklist.md`, `self-update.md`.
+
 ---
 
 ## 1. Documentation Sync Check
@@ -25,39 +27,17 @@ Verify that documentation files reflect the actual state of the codebase.
 
 ## 2. Claude Code Best Practices Audit
 
-Check the repository against known Claude Code best practices. Fetch the latest recommendations from:
+Walk the full checklist in [best-practices-checklist.md](../../best-practices-checklist.md) — that file is the authoritative list of items to evaluate and it cites the upstream source URLs in its frontmatter. Do **not** duplicate the checklist here; read the file and execute it.
 
-- `https://code.claude.com/docs/en/best-practices`
-- `https://github.com/shanraisshan/claude-code-best-practice`
+For each item in the checklist, produce:
 
-Then audit the repository for:
+- **Status**: pass / fail / n/a
+- **Evidence**: file path, command output, or observation that backs the status
+- **Recommendation**: concrete next step when failing
 
-### CLAUDE.md Quality
-- Does the project have a `CLAUDE.md`? Is it comprehensive?
-- Does it include: project overview, key commands (build/test/lint), architecture description, code conventions, and gotchas?
-- Is it concise enough to be effective (not overly verbose)? Does it only include rules that can't be inferred from the code itself?
-- Does it provide verification criteria (tests, linter commands, expected outputs) so Claude can self-check?
+Group findings by section (CLAUDE.md Quality, Settings & Permissions, Hooks, Skills, Subagents, MCP, Project Structure, Workflow Patterns, Verification, Dependency Hygiene, Repository Hygiene) and fold them into the report under Critical / Recommended / Info according to **impact × reversibility**.
 
-### Settings & Permissions
-- Are `settings.json` permissions appropriately scoped (not too broad, not too narrow)?
-- Are hooks configured for notifications, linting, or other automations?
-- Are there deterministic hooks (e.g., run linter after every edit, block writes to sensitive paths)?
-- Is `settings.local.json` used for environment-specific overrides?
-
-### Project Structure
-- Are there `.claude/skills/` for repetitive workflows?
-- Are there `.claude/agents/` for isolated tasks (e.g., security review, code review) with scoped tools?
-- Is there a `.claude/CLAUDE.md` for project-level instructions?
-- Are there appropriate `.gitignore` entries for Claude Code runtime files?
-- Is there a `.mcp.json` if the project uses external tools (databases, APIs, etc.)?
-
-### Workflow Patterns
-- Are common operations (build, test, deploy) documented and easy to invoke?
-- Is the project using hooks effectively (pre-commit, notification, stop)?
-- Is the project following a structured workflow (research → plan → execute → verify → commit)?
-- Are subagents used for investigation/research tasks to keep main context clean?
-
-**Output**: Checklist with pass/fail/recommendation for each item, with references to the best practices source.
+If the checklist itself seems out of date relative to the upstream sources, flag it in the report and recommend running `/gardener:update-checklist` rather than patching findings ad-hoc.
 
 ## 3. Skill Extraction from Conversation History
 
@@ -78,15 +58,19 @@ Analyze past Claude Code conversations to identify repetitive patterns that coul
 
 ## 4. Dependency & Security Hygiene
 
-Review project dependencies and security posture.
+Walk the full checklist in [security-checklist.md](../../security-checklist.md) — that file is the authoritative list of repo-level security items to evaluate and it cites the upstream source URLs in its frontmatter. Do **not** duplicate the checklist here; read the file and execute it.
 
-- Check for outdated dependencies (if `package.json`, `go.mod`, `pyproject.toml`, `requirements.txt`, etc. exist).
-- Check for known vulnerabilities (`npm audit`, `pip audit`, `govulncheck`, etc. — run what's available).
-- Verify lockfiles are committed and up to date.
-- Check for `.env` or credential files accidentally committed to git.
-- Verify `.gitignore` covers common sensitive files.
+For each item, produce:
 
-**Output**: List of findings with severity (critical/warning/info) and suggested fixes.
+- **Status**: pass / fail / n/a
+- **Evidence**: file path, command output (`npm audit`, `gitleaks`, grep result), or observation
+- **Recommendation**: concrete next step when failing
+
+Prioritize findings by **exploitability × blast radius**: secret leaks and public-facing auth issues are critical; missing hardening headers and logging gaps are recommended; style/convention issues are info.
+
+**Scope boundary**: this section is coarse repo-observable hygiene. Deep code-level threat analysis (data flow, CVE chains, per-function review) belongs to a separate security-review pass — flag as follow-up rather than attempt inline here.
+
+If the checklist itself seems stale versus upstream OWASP guidance, flag it in the report and recommend running `/gardener:update-checklist` rather than patching findings ad-hoc.
 
 ## 5. Repository Hygiene
 
@@ -151,3 +135,12 @@ Format each entry as:
 - Append new entries at the **end** of the file (chronological order).
 - Keep entries concise — the journal is a log, not a duplicate of the full report.
 - Remind the user to add `.gardener-journal.md` to version control so the team can track health over time.
+
+## Updating the Checklists
+
+Support-file checklists go stale as upstream docs change and new reference URLs are added:
+
+- [best-practices-checklist.md](../../best-practices-checklist.md) — Claude Code best-practices audit source
+- [security-checklist.md](../../security-checklist.md) — repo-level security hygiene source
+
+When the user asks to add a new reference URL to any of these, or when a routine resync is requested, invoke `/gardener:update-checklist` (design rationale in [self-update.md](../../self-update.md)). Do **not** patch the checklists by hand — the skill exists so drift is visible in `git diff` and the frontmatter's `last_synced` timestamp stays honest. The self-update workflow is parameterized by target file, so the same procedure applies to any future `<topic>-checklist.md` support file.

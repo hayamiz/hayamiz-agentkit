@@ -7,7 +7,7 @@ dependencies:
   - anthropics/skills/skills/skill-creator
   - hayamiz/hayamiz-skills/commit-all
   - hayamiz/hayamiz-skills/commit-session
-  - hayamiz/hayamiz-skills/gardener
+  - hayamiz/hayamiz-skills/plugins/gardener
   - hayamiz/hayamiz-skills/ticket-check
   - hayamiz/hayamiz-skills/ticket-create
   - hayamiz/hayamiz-skills/ticket-fix
