@@ -22,7 +22,7 @@ skills/                 Standalone skills, shipped via APM
   commit-session/
 plugins/                Claude Code plugins, shipped via marketplace.json
   gardener/             Repo-health audit plugin.
-  ticket/               File-based ticket workflow (init / create / check / triage / fix).
+  ticket/               File-based ticket workflow (init / create / grill / check / triage / fix).
 .claude-plugin/
   marketplace.json      Marketplace manifest listing plugins/* for Claude Code.
 apm.yml                 APM project manifest (this repo's own dependencies — skills only)
@@ -61,9 +61,9 @@ apm_modules/            APM install output (gitignored)
 - `/commit-session` — commit only the files changed in the current session,
   grouped into semantically coherent commits.
 - `/commit-all` — commit every dirty file, similarly grouped.
-- `/ticket-init` / `/ticket-create` / `/ticket-check` / `/ticket-triage` /
-  `/ticket-fix` — file-based ticket workflow (provided by the `ticket` plugin).
-  See each skill's `SKILL.md` for details.
+- `/ticket-init` / `/ticket-create` / `/grill-with-ticket` / `/ticket-check` /
+  `/ticket-triage` / `/ticket-fix` — file-based ticket workflow (provided by the
+  `ticket` plugin). See each skill's `SKILL.md` for details.
 - `/gardener` — repo health audit. Reference checklists live in
   `plugins/gardener/*.md`.
 

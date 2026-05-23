@@ -7,19 +7,21 @@ tree and ride along with the code they describe.
 
 ## Skills in This Plugin
 
-| Skill             | Purpose                                                                                                  |
-| :---------------- | :------------------------------------------------------------------------------------------------------- |
-| `/ticket-init`    | One-time setup per host project: resolve/declare `<ticket-dir>`, create its `CLAUDE.md`, migrate legacy. |
-| `/ticket-create`  | Create a new numbered ticket under `<ticket-dir>/`.                                                      |
-| `/ticket-check`   | Read-only: list open tickets and their status.                                                           |
-| `/ticket-triage`  | Classify each open ticket by complexity, mechanical-fix feasibility, and whether user input is needed.   |
-| `/ticket-fix`     | Implement fixes for all tickets triaged as mechanically fixable. Does not commit.                        |
+| Skill                | Purpose                                                                                                                  |
+| :------------------- | :----------------------------------------------------------------------------------------------------------------------- |
+| `/ticket-init`       | One-time setup per host project: resolve/declare `<ticket-dir>`, create its `CLAUDE.md`, migrate legacy.                 |
+| `/ticket-create`     | Create a new numbered ticket under `<ticket-dir>/`.                                                                      |
+| `/grill-with-ticket` | Relentless one-question-at-a-time interview against an open ticket; crystallises decisions into `## Implementation Notes`. |
+| `/ticket-check`      | Read-only: list open tickets and their status.                                                                           |
+| `/ticket-triage`     | Classify each open ticket by complexity, mechanical-fix feasibility, and whether user input is needed.                   |
+| `/ticket-fix`        | Implement fixes for all tickets triaged as mechanically fixable. Does not commit.                                        |
 
 Typical flow on a new project:
 
 ```
 /ticket-init                 # once per project
 /ticket-create "<title>"     # as needed
+/grill-with-ticket NNNN      # optional: stress-test the plan before fixing
 /ticket-check                # see state
 /ticket-triage               # classify open tickets
 /ticket-fix                  # resolve mechanically fixable ones

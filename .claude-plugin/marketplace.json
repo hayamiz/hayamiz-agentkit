@@ -12,7 +12,7 @@
     {
       "name": "ticket",
       "source": "./plugins/ticket",
-      "description": "File-based, in-repo ticket workflow: init → create → check → triage → fix. Tickets are numbered Markdown files in the repository, separate from GitHub Issues."
+      "description": "File-based, in-repo ticket workflow: init → create → grill → check → triage → fix. Tickets are numbered Markdown files in the repository, separate from GitHub Issues."
     }
   ]
 }
