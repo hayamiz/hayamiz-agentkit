@@ -33,22 +33,6 @@ if [ ! -d "$GH_CONFIG_DIR" ]; then
   mkdir -p "$GH_CONFIG_DIR"
 fi
 
-# Stage OpenCode config for bind mount.
-# The source directory may contain symlinks (e.g. from dotopencode/setup.sh)
-# that point to paths not available inside the container. We copy with -L to
-# dereference them so the mount contains plain files the container can read.
-OPENCODE_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/opencode"
-OPENCODE_STAGE="$HOME/.devcontainer-opencode-config"
-mkdir -p "$OPENCODE_CONFIG_DIR"
-rm -rf "$OPENCODE_STAGE"
-mkdir -p "$OPENCODE_STAGE"
-if [ -n "$(ls -A "$OPENCODE_CONFIG_DIR" 2>/dev/null)" ]; then
-  cp -rL "$OPENCODE_CONFIG_DIR/." "$OPENCODE_STAGE/"
-fi
-
-# Ensure Cline data directory exists so bind mount doesn't fail.
-mkdir -p "${HOME}/.cline/data"
-
 # Ensure Claude config directory and state file exist so bind mounts don't fail.
 # These are required by the claude-auth mount entries in devcontainer.json.
 mkdir -p "${HOME}/.claude"

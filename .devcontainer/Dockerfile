@@ -86,13 +86,6 @@ RUN mkdir -p /home/${USERNAME}/.npm-global \
 USER root
 ENV PATH=/home/${USERNAME}/.npm-global/bin:$PATH
 
-# Install cline
-RUN npm install -g cline
-
-# Install OpenCode
-RUN curl -fsSL https://opencode.ai/install | bash \
-    && mv /root/.opencode/bin/opencode /usr/local/bin/
-
 # Install Agent Package Manager (apm)
 RUN curl -sSL https://aka.ms/apm-unix | sh
 
@@ -139,12 +132,6 @@ RUN { \
       echo 'fi'; \
       echo 'if [ -f /host-claude.json ] || [ -L /host-claude.json ]; then'; \
       echo '  cp -L /host-claude.json "$HOME/.claude.json"'; \
-      echo 'fi'; \
-      echo ''; \
-      echo '# Copy OpenCode config from host'; \
-      echo 'if [ -d /host-opencode ] && [ -n "$(ls -A /host-opencode 2>/dev/null)" ]; then'; \
-      echo '  mkdir -p "$HOME/.config/opencode"'; \
-      echo '  cp -aL /host-opencode/. "$HOME/.config/opencode/"'; \
       echo 'fi'; \
       echo ''; \
       echo '# Copy Pushover token if present'; \
