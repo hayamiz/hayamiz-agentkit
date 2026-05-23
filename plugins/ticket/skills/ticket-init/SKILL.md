@@ -10,10 +10,6 @@ One-time setup for the `ticket` plugin on a host project. Decides where tickets 
 
 Run this before `/ticket-create` / `/ticket-check` / `/ticket-triage` / `/ticket-fix` on a new project. Running it again on an already-initialized project is safe: it detects existing state and does not overwrite.
 
-## Portability (maintainers, read this before editing)
-
-These skills must remain project-agnostic. When updating this SKILL.md, do **not** introduce hardcoded references to specific languages, frameworks, test runners, build tools, file paths, or directory layouts. Project-specific knowledge belongs in the host repo's `CLAUDE.md` and the host repo's `<ticket-dir>/CLAUDE.md` — these skills **read** that configuration at runtime, they do not embed it. If a new instruction would only make sense in one tech stack, rewrite it as a principle before merging.
-
 ## Instructions
 
 ### Step 1: Resolve the ticket directory

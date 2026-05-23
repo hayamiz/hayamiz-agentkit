@@ -9,10 +9,6 @@ allowed-tools: Bash(*) Read Write Glob Grep
 
 Create a new ticket file in the project's **ticket directory** (a file-based, in-repo work-item tracker). Tickets are numbered Markdown files with YAML frontmatter. The `ticket` plugin (`/ticket-create`, `/ticket-check`, `/ticket-triage`, `/ticket-fix`) together manages the lifecycle of such tickets.
 
-## Portability (maintainers, read this before editing)
-
-These skills must remain project-agnostic. When updating this SKILL.md, do **not** introduce hardcoded references to specific languages, frameworks, test runners, build tools, file paths, or directory layouts. Project-specific knowledge belongs in the host repo's `CLAUDE.md` and the host repo's `<ticket-dir>/CLAUDE.md` — these skills **read** that configuration at runtime, they do not embed it. If a new instruction would only make sense in one tech stack, rewrite it as a principle (e.g., "run the verification commands declared in `CLAUDE.md`") before merging.
-
 ## Instructions
 
 ### Step 1: Resolve the ticket directory

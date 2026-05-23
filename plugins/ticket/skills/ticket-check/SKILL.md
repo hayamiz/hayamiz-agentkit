@@ -8,10 +8,6 @@ allowed-tools: Read Glob Grep
 
 Display a summary of all currently non-resolved tickets in the project's ticket directory. Read-only — this skill never modifies any files.
 
-## Portability (maintainers, read this before editing)
-
-These skills must remain project-agnostic. When updating this SKILL.md, do **not** introduce hardcoded references to specific languages, frameworks, test runners, build tools, file paths, or directory layouts. Project-specific knowledge belongs in the host repo's `CLAUDE.md` and the host repo's `<ticket-dir>/CLAUDE.md` — these skills **read** that configuration at runtime, they do not embed it. If a new instruction would only make sense in one tech stack, rewrite it as a principle before merging.
-
 ## Instructions
 
 ### Step 1: Resolve the ticket directory

@@ -9,10 +9,6 @@ allowed-tools: Bash(*) Read Edit Write Glob Grep
 
 Implement fixes for open tickets that `/ticket-triage` has marked as mechanically fixable (no user decision needed). Each fix is delegated to a subagent to keep the main conversation context lean. This skill **does not commit** — after resolution, use `/commit-session` to commit the changes.
 
-## Portability (maintainers, read this before editing)
-
-These skills must remain project-agnostic. When updating this SKILL.md, do **not** introduce hardcoded references to specific languages, frameworks, test runners, build tools, file paths, or directory layouts (e.g., `go vet`, `npx playwright`, `pytest`, `doc/SPEC.md`, `e2e/tests/`, `server_test.go`). Project-specific knowledge belongs in the host repo's `CLAUDE.md` and the host repo's `<ticket-dir>/CLAUDE.md` — this skill **reads** that configuration at runtime, it does not embed it. If a new instruction would only make sense in one tech stack, rewrite it as a principle (e.g., "run the verification commands declared in `CLAUDE.md`") before merging.
-
 ## Instructions
 
 ### Step 1: Resolve the ticket directory and project conventions
