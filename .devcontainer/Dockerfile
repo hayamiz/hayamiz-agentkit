@@ -78,8 +78,13 @@ RUN if [ "$USER_UID" != "1000" ]; then \
 RUN echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/${USERNAME} \
     && chmod 0440 /etc/sudoers.d/${USERNAME}
 
-# Install Claude Code
-RUN npm install -g @anthropic-ai/claude-code
+# Install Claude Code as the ubuntu user so its auto-update can write back to it
+USER ${USERNAME}
+RUN mkdir -p /home/${USERNAME}/.npm-global \
+    && npm config set prefix /home/${USERNAME}/.npm-global \
+    && npm install -g @anthropic-ai/claude-code
+USER root
+ENV PATH=/home/${USERNAME}/.npm-global/bin:$PATH
 
 # Install cline
 RUN npm install -g cline
