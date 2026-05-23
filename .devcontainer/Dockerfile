@@ -99,6 +99,8 @@ RUN mkdir -p /home/${USERNAME}/.config \
 # Pre-create .claude and subdirectories for bind mounts
 RUN mkdir -p /home/${USERNAME}/.claude/projects \
              /home/${USERNAME}/.claude/sessions \
+             /home/${USERNAME}/.claude/plugins \
+             /home/${USERNAME}/.claude/file-history \
     && chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}/.claude
 
 # Create minimal tmux config with C-t as prefix
@@ -123,6 +125,18 @@ RUN printf '%s\n' \
 RUN { \
       echo '#!/usr/bin/env bash'; \
       echo 'set -euo pipefail'; \
+      echo ''; \
+      echo '# Symlink host Claude config files into ~/.claude/ if present'; \
+      echo 'for f in settings.json CLAUDE.md notification_wrapper.sh stop_wrapper.sh osc9_notify.sh; do'; \
+      echo '  if [ -f "/host-claude/$f" ] || [ -L "/host-claude/$f" ]; then'; \
+      echo '    mkdir -p "$HOME/.claude"'; \
+      echo '    ln -sfn "/host-claude/$f" "$HOME/.claude/$f"'; \
+      echo '  fi'; \
+      echo 'done'; \
+      echo '# Symlink skills directory if present'; \
+      echo 'if [ -d "/host-claude/skills" ]; then'; \
+      echo '  ln -sfn "/host-claude/skills" "$HOME/.claude/skills"'; \
+      echo 'fi'; \
       echo ''; \
       echo '# Copy Claude OAuth credentials from read-only mount'; \
       echo 'if [ -f /host-claude/.credentials.json ] || [ -L /host-claude/.credentials.json ]; then'; \

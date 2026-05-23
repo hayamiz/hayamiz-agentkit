@@ -1,5 +1,7 @@
 .devcontainer/claude-projects/
 .devcontainer/claude-sessions/
+.devcontainer/claude-plugins/
+.devcontainer/claude-file-history/
 
 # APM dependencies
 apm_modules/
