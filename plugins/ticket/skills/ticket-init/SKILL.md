@@ -160,4 +160,18 @@ If this project has verification commands (tests, linters, type checks)
 that `/ticket-fix` should run, list them here under a `## Verification`
 heading as a shell-ready checklist. If none are declared, `/ticket-fix`
 will ask the user what to run.
+
+## Concurrency
+
+`/ticket-fix` may work on several tickets in parallel, each in its own git
+worktree. To stop two agents from grabbing the same ticket, the `ticket`
+plugin takes atomic claim locks under the repo's shared git dir
+(`.git/ticket-locks/`, never committed) via the bundled `ticket-state.sh`
+script. This protects agents running against the **same clone**; it does not
+coordinate across separate clones (e.g. a cloud run vs. a local one), which
+rely on git merge-conflict detection plus the `/ticket-apply` human gate.
+
+- `Lock TTL: 2h` — how long a claim lock is honored before a fresh run may
+  steal it (assuming the previous owner died). Accepts `2h`, `90m`, `1h30m`,
+  or bare seconds. Omit this line to use the 2h default.
 ```
