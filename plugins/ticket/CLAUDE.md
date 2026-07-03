@@ -13,8 +13,10 @@ tree and ride along with the code they describe.
 | `/ticket-create`     | Create a new numbered ticket under `<ticket-dir>/`.                                                                      |
 | `/grill-with-ticket` | Relentless one-question-at-a-time interview against an open ticket; crystallises decisions into `## Implementation Notes`. |
 | `/ticket-check`      | Read-only: list open tickets and their status.                                                                           |
-| `/ticket-triage`     | Classify each open ticket by complexity, mechanical-fix feasibility, and whether user input is needed.                   |
-| `/ticket-fix`        | Implement fixes for all tickets triaged as mechanically fixable. Does not commit.                                        |
+| `/ticket-triage`     | Classify each open ticket by complexity, mechanical-fix feasibility, and user input needed; recommends a fix strategy (in-place / worktree). |
+| `/ticket-fix`        | Implement mechanically-fixable tickets: trivial ones in place, non-trivial ones in isolated worktrees checked by an independent evaluator. Claims tickets with locks. Does not merge to your branch. |
+| `/ticket-apply`      | **Human-only.** Review the worktree fixes and merge the approved ones into your current branch. Never auto-merges.       |
+| `/ticket-lint`       | Validate ticket frontmatter and the `status`⇔location invariant; inspect/clear claim locks. `--fix` for safe repairs.    |
 
 Typical flow on a new project:
 
@@ -25,8 +27,12 @@ Typical flow on a new project:
 /ticket-check                # see state
 /ticket-triage               # classify open tickets
 /ticket-fix                  # resolve mechanically fixable ones
-/commit-session              # commit the resulting changes
+/ticket-apply                # review + merge the non-trivial (worktree) fixes
+/commit-session              # commit the in-place fixes + resolved tickets
 ```
+
+`/ticket-lint` can be run at any time to check ticket integrity and inspect
+locks; it also runs as a read-only gate at the start of triage / fix / apply.
 
 ## Concepts
 
@@ -80,6 +86,43 @@ updated: YYYY-MM-DD
 - `blocked` → waiting on external input; stays in `<ticket-dir>/`, not `resolved/`.
 - `resolved` → done; file moves to `<ticket-dir>/resolved/`.
 
+## State Management & Isolation
+
+All ticket `status` changes and locking go through one bundled script,
+`scripts/ticket-state.sh` (invoked as
+`${CLAUDE_PLUGIN_ROOT}/scripts/ticket-state.sh`). It is the single entry point
+to the state machine — this is what keeps parallel runs from corrupting ticket
+state. Three layers:
+
+- **Claim locks** — before working a ticket, `/ticket-fix` atomically claims it
+  (a `mkdir` lock under the shared git dir,
+  `$(git rev-parse --git-common-dir)/ticket-locks/NNNN/`). A second agent that
+  tries the same ticket is refused. This separates *runtime ownership* (the
+  lock) from *durable state* (the `status:` field), which matters because a
+  branch-local `status: in-progress` is invisible in the main tree until merged.
+  Portable via `mkdir` atomicity — no `flock` dependency (macOS has none). Stale
+  locks (older than `Lock TTL`, default 2h, or whose worktree is gone) are stolen
+  with a warning.
+- **Atomic transitions** — `transition` rewrites `status` + `updated` with a
+  temp-file rename and, for `resolved`, does the `resolved/` move in the same
+  step, enforcing the `status: resolved ⇔ under resolved/` invariant. Never edit
+  the `status:` line or `git mv` a ticket by hand.
+- **Lint** — `lint` validates frontmatter, filenames, unique numbers, the
+  location invariant, and lock consistency (orphan / stale). It runs as a
+  read-only gate at the start of triage / fix / apply, and standalone as
+  `/ticket-lint`.
+
+**Worktrees** for non-trivial fixes live at
+`$(git rev-parse --git-common-dir)/ticket-worktrees/ticket-NNNN` on
+`ticket/NNNN-<slug>` branches — outside the working tree, so they never appear
+in `git status`. `/ticket-apply` merges and removes them.
+
+**Scope limit** (state this honestly, don't oversell): locks coordinate agents
+against the **same clone** (multiple worktrees + local sessions). They do not
+span clones — a cloud run and a local run use separate git dirs. Cross-clone
+safety relies on git merge-conflict detection plus the `/ticket-apply` human
+gate.
+
 ## Project Integration
 
 Host-project specifics live in **the host repo's** `<ticket-dir>/CLAUDE.md`,
@@ -102,12 +145,24 @@ any `skills/*/SKILL.md` here, check that a new instruction would make sense
 across stacks; if not, rewrite it as a principle or move it to the per-project
 `CLAUDE.md` template in `skills/ticket-init/SKILL.md`'s Appendix.
 
-## Does Not Commit
+## Commits and Merges
 
-None of the skills in this plugin run `git commit`, `git add`, or equivalent.
-After `/ticket-fix` resolves a batch, the working tree is dirty with resolved
-tickets moved and source/test edits applied. Use `/commit-session` (from the
-`commit-session` skill in this repo) to commit the result.
+The plugin never lands work on your current branch on its own:
+
+- **In-place (trivial) fixes** leave the working tree dirty — resolved tickets
+  moved, source/test edits applied. Commit them with `/commit-session` (from the
+  `commit-session` skill in this repo).
+- **Non-trivial fixes** are committed by `/ticket-fix` proactively onto
+  throwaway `ticket/NNNN-<slug>` branches — the fix and its tests, then the
+  resolved ticket — never your branch. Worktree isolation is what makes eager
+  committing safe. They reach your branch only when **you** run `/ticket-apply`,
+  which does a `git merge --no-ff` per approved ticket — the single,
+  human-invoked place the plugin commits to your branch.
+- Claim locks live under `.git` and are never committed.
+
+So the rule is now "never commits or merges to *your* branch automatically":
+generator commits are confined to disposable branches, and integration is gated
+behind the human-only `/ticket-apply`.
 
 ## Reference
 
