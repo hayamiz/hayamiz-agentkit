@@ -74,7 +74,7 @@ Process landed tickets sequentially in priority then number order, so later merg
 
 **Land NNNN** (base = your current branch):
 
-1. If the working tree has uncommitted changes that could conflict, warn and let the user decide before proceeding.
+1. If the working tree has uncommitted changes that could conflict, warn and let the user decide before proceeding. Also remove any **stale main-tree `open` copy** of this ticket: if `doc/tickets/NNNN-*.md` exists (untracked / uncommitted) while the branch carries `doc/tickets/resolved/NNNN-*.md`, delete the stale `doc/tickets/NNNN-*.md` first — otherwise the merge leaves two files for the same ticket number (open + resolved), which `lint` flags as a duplicate. (This arises when the ticket was fixed before being committed on the base.)
 2. Merge, preserving a per-ticket merge commit:
 
    ```

@@ -1,7 +1,7 @@
 {
   "name": "ticket",
   "description": "File-based, in-repo ticket workflow: init → create → check → triage → fix → apply, plus lint and lock-based state management. Non-trivial fixes run in isolated git worktrees checked by an independent evaluator. Tickets are numbered Markdown files in the repository, separate from GitHub Issues.",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "author": {
     "name": "Yuto Hayamizu"
   }

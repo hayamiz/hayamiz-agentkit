@@ -130,9 +130,12 @@ A non-trivial fix is checked by an **independent reviewer** before it counts as
 `/ticket-fix` picks the reviewer in this order:
 
 1. **The Codex CLI, if available and working** — from the fix's worktree,
-   `codex review --base <base>` reviews the ticket branch against its base with a
-   **non-Claude** model, so the judgement is genuinely independent of the
-   generator (the strongest form of the split). This depends only on the user's
+   `codex review --base <base> -c sandbox_mode="danger-full-access"` reviews the
+   ticket branch against its base with a **non-Claude** model, so the judgement is
+   genuinely independent of the generator (the strongest form of the split). The
+   sandbox override lets it run in containers / CI where Codex's own bubblewrap
+   sandbox cannot create a namespace (otherwise it exits 0 without inspecting the
+   diff); the review only reads git and files. This depends only on the user's
    `codex` CLI being installed and authenticated — no plugin, no coupling to any
    plugin's internals.
 2. **The bundled `ticket:ticket-evaluator` agent (on Sonnet)** — the fallback
