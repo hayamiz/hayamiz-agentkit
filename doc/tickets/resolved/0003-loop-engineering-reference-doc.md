@@ -132,3 +132,12 @@ Verification (docs-only change, no code paths, so no tests added): the repo's
 declared checks from `doc/tickets/CLAUDE.md` passed — shell scripts parse
 (`bash -n`) and plugin/marketplace manifests are valid JSON. The ticket lint
 runs later in the apply flow.
+
+- Evaluator: PASS — `ticket:ticket-evaluator` (Sonnet), the Codex-CLI fallback.
+  The Codex CLI review (`codex review --base master`) exited 0 but produced no
+  usable result: its bubblewrap sandbox failed to initialize in this container
+  (`bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted`), so it could
+  not inspect the diff — the fallback reviewer took over. The evaluator ran the
+  repo verification (bash -n, JSON validity, ticket lint), confirmed all required
+  concepts are present and coherent, no PDF/binary is tracked, and the ticket is
+  resolved. Non-blocking: a few prose lines run 81–84 chars.
