@@ -67,6 +67,15 @@ apm_modules/            APM install output (gitignored)
 - `/gardener` — repo health audit. Reference checklists live in
   `plugins/gardener/*.md`.
 
+## Tickets
+
+Ticket directory: doc/tickets/
+
+File-based work-item tickets for this project live under `doc/tickets/`.
+Managed by the `ticket` plugin (`/ticket-create`, `/ticket-check`,
+`/ticket-triage`, `/ticket-fix`). See `doc/tickets/CLAUDE.md` for the
+ticket schema and lifecycle.
+
 ## Conventions
 
 - **Commit style**: Conventional Commits prefixes (`feat`, `fix`, `chore`,
