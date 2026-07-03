@@ -18,6 +18,14 @@ Analyze all open tickets in the project's ticket directory and classify each by 
 
 If `<ticket-dir>/CLAUDE.md` is missing, instruct the user to run `/ticket-init` first (which bootstraps it) and stop.
 
+Then run the lint gate before analyzing anything:
+
+```
+${CLAUDE_PLUGIN_ROOT}/scripts/ticket-state.sh --dir <ticket-dir> lint --all
+```
+
+If it exits non-zero (hard errors such as an invalid `status`, a bad date, or a duplicate number), **stop** and show the output. Ask the user to repair the tickets (optionally `/ticket-lint <n> --fix` for the safe cases) before triaging — triage must not build on a corrupt state.
+
 ### Step 2: Collect tickets to triage
 
 - List `*.md` files directly in `<ticket-dir>/` that match `NNNN-*.md` (exclude `CLAUDE.md` and anything under `resolved/`).
@@ -52,6 +60,11 @@ Assess the ticket against these three axes:
 - **Mechanical fix**: `yes` / `no` — can this be fixed unambiguously from the spec, existing tests, and repository conventions, without design choices? If multiple reasonable approaches exist and they would produce meaningfully different behavior, answer `no`.
 - **Requires user decision**: `yes` / `no` — does the fix need input from the user on behavior, UX, architecture, or trade-offs?
 
+Also estimate, so `/ticket-fix` can choose an isolation strategy:
+
+- **Affected files**: roughly how many files the fix will touch (a count, plus the main paths if known).
+- **Fix strategy**: `in-place` / `worktree` — recommend `in-place` only for a small, self-contained change (`Complexity: low`, a single file, a few lines); otherwise recommend `worktree`. `/ticket-fix` makes the final call, but this is the default it starts from.
+
 **If `Mechanical fix` is `no`**, before concluding the triage the subagent must:
 
 1. Research the relevant source code, specs, and dependencies in depth.
@@ -62,6 +75,7 @@ Assess the ticket against these three axes:
 The subagent must return:
 
 - `complexity`, `mechanical_fix`, `requires_user_decision` fields (values as above).
+- `affected_files` (a count, plus main paths if known) and `fix_strategy` (`in-place` | `worktree`).
 - A short rationale (2–4 sentences).
 - A one-line summary usable in the final table.
 - (If applicable) the text appended to `## Implementation Notes`.
@@ -76,6 +90,8 @@ For each triaged ticket, append or replace the `## Triage` section using the for
 - Complexity: <low|medium|high>
 - Mechanical fix: <yes|no>
 - Requires user decision: <yes|no>
+- Affected files: <count> (<main paths if known>)
+- Fix strategy: <in-place|worktree>
 - Notes: <short rationale>
 ```
 
