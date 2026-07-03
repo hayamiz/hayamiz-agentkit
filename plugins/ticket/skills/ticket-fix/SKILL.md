@@ -1,6 +1,6 @@
 ---
 name: ticket-fix
-description: "Implement fixes for tickets triaged as mechanically fixable. Trivial fixes edit in place; non-trivial fixes run in an isolated git worktree where the work is committed as it goes, checked by an independent reviewer (Codex via /codex:adversarial-review when available, else a bundled evaluator subagent), and landed on your branch only via /ticket-apply. Claims each ticket with a lock so parallel runs don't collide. Does not merge to your branch."
+description: "Implement fixes for tickets triaged as mechanically fixable. Trivial fixes edit in place; non-trivial fixes run in an isolated git worktree where the work is committed as it goes, checked by an independent reviewer (the Codex CLI when available, else a Sonnet evaluator subagent), and landed on your branch only via /ticket-apply. Claims each ticket with a lock so parallel runs don't collide. Does not merge to your branch."
 argument-hint: "[ticket-number]"
 allowed-tools: Bash(*) Read Edit Write Glob Grep
 ---
@@ -108,10 +108,16 @@ For each claimed non-trivial ticket, the parent:
    - Resolve on the branch: `ticket-state.sh --dir <ticket-dir> transition NNNN --from in-progress --to resolved --move`, write a `## Resolution` section (what changed, tests added, spec updates), then commit the ticket file as a second commit (a `chore(ticket):`-style message).
    - Leave the worktree clean (everything committed) before reporting files changed, tests added, and the verification result.
 
-3. **Review the fix — prefer an independent, cross-model reviewer.**
-   - **If the `codex` plugin (codex-plugin-cc) is installed** — i.e. `/codex:review` / `/codex:adversarial-review` is available — use it. It runs a non-Claude model, so its judgement is genuinely independent of the generator, which is the strongest form of the generator/evaluator split. Prefer `/codex:adversarial-review` (built to challenge the implementation and design). Point it at the fix's branch versus the base it was cut from and block for the result, e.g. `/codex:adversarial-review --base <base-branch> --wait`, run so codex reviews the `ticket/NNNN-<slug>` diff (from the fix's worktree). Turn the returned review into a gate: any blocking correctness/security problem ⇒ REJECT; PASS only if it raises none. If codex cannot be pointed at the branch cleanly, fall back to the subagent below.
-   - **Otherwise, dispatch the bundled evaluator subagent** with `subagent_type: ticket:ticket-evaluator`. Its prompt MUST include the full ticket text, the absolute worktree path `$WT` (instruct it to `cd "$WT"` first), and the verification commands. It assumes the code is broken until proven otherwise, runs the verification itself, judges behavior over intent, edits nothing, and returns `VERDICT: PASS | REJECT` with evidence.
-   - **If codex is not installed**, proceed with the subagent, and note once in the final summary that installing codex-plugin-cc adds a stronger cross-model reviewer (install commands are in `plugins/ticket/CLAUDE.md`).
+3. **Review the fix — Codex CLI first, Sonnet evaluator as fallback.**
+   - **If the Codex CLI is available** (`command -v codex` succeeds), try it first. It is a non-Claude model, so its judgement is genuinely independent of the generator. From the fix's worktree (so the ticket branch is checked out), review the branch against the base it was cut from, with a bounded timeout (the review can be slow):
+
+     ```
+     cd "$WT" && codex review --base <base-branch>
+     ```
+
+     `codex review --base <ref>` reviews the current branch versus `<ref>`; it does not accept a custom prompt alongside `--base`, so this uses Codex's built-in review. Turn the result into the gate: a clean review ⇒ PASS; any blocking correctness/security finding ⇒ REJECT.
+   - **Fall back to the Sonnet evaluator** whenever the Codex CLI is **absent**, or its run does **not** return a usable result — a non-zero exit, a "not authenticated / login required" message, a rate-limit / quota error, a timeout, or empty output. Dispatch the bundled evaluator subagent with `subagent_type: ticket:ticket-evaluator` (it runs on Sonnet). Its prompt MUST include the full ticket text, the absolute worktree path `$WT` (instruct it to `cd "$WT"` first), and the verification commands. It assumes the code is broken until proven otherwise, runs the verification itself, judges behavior over intent, edits nothing, and returns `VERDICT: PASS | REJECT` with evidence.
+   - Whichever reviewer ran, it produces the single PASS/REJECT verdict used by steps 4–5. Note in the final summary which reviewer was used (Codex CLI or the Sonnet evaluator).
 
 4. **On PASS**: the parent records the verdict — append an `Evaluator: PASS — <reviewer + what was run>` line to the branch ticket's `## Resolution` and commit it — then leave the branch and worktree in place and **keep the claim lock**. The fix now awaits review via `/ticket-apply`.
 
@@ -175,6 +181,6 @@ End with the right next step(s):
 - **Does not touch your current branch.** Worktree commits land on their own `ticket/NNNN-<slug>` branch and reach your branch only through `/ticket-apply` (the human gate). The plugin's "never lands on your branch automatically" rule is upheld — only `/ticket-apply` merges.
 - **Status is script-owned.** Never edit the `status:` line or `git mv` a ticket by hand — always use `ticket-state.sh transition`, which keeps the `status ⇔ location` invariant.
 - **Claim before work, release when done.** A ticket is locked for the whole fix→await-apply window; `/ticket-apply` releases worktree locks on land/reject. Bounced and in-place fixes release their own lock.
-- **Evaluator separation is the point.** The agent that wrote the code never grades its own work; a separate skeptical reviewer that *runs* the change decides PASS. Prefer an external cross-model reviewer — `/codex:adversarial-review` from codex-plugin-cc — when it's installed; otherwise the bundled `ticket:ticket-evaluator` subagent (Claude, `model: inherit`, adversarial by prompt) does it. A worktree fix with no PASS is not "Ready to apply".
+- **Evaluator separation is the point.** The agent that wrote the code never grades its own work; a separate reviewer that *runs* the change decides PASS. Try the **Codex CLI** first (`codex review --base <base>` from the worktree) for a genuinely independent, non-Claude judgement; if it is unavailable or does not return a usable result (no auth, rate-limited, timeout, empty), fall back to the bundled `ticket:ticket-evaluator` subagent (Claude on **Sonnet**, adversarial by prompt). A worktree fix with no PASS is not "Ready to apply".
 - **Do not skip user-decision tickets**, and keep each fix focused — if a fix organically wants to grow, that's a signal it isn't mechanical; bounce it back.
 - **Per-ticket subagent isolation is non-negotiable** — it keeps the skill usable on projects with many tickets without blowing up the parent context.

@@ -129,27 +129,23 @@ A non-trivial fix is checked by an **independent reviewer** before it counts as
 "ready to apply" — the agent that wrote the code never grades its own work.
 `/ticket-fix` picks the reviewer in this order:
 
-1. **Codex, if installed** — when `/codex:review` / `/codex:adversarial-review`
-   (from codex-plugin-cc) is available, the review is routed there. This runs a
+1. **The Codex CLI, if available and working** — from the fix's worktree,
+   `codex review --base <base>` reviews the ticket branch against its base with a
    **non-Claude** model, so the judgement is genuinely independent of the
-   generator (the strongest form of the split). `/codex:adversarial-review` is
-   preferred because it is built to challenge the implementation and design.
-2. **Bundled `ticket:ticket-evaluator` agent** otherwise — a Claude subagent
-   with `model: inherit` that is adversarial *by prompt* (assume-broken-until-
-   proven, run the tests, judge behavior not intent, edit nothing). It is not a
-   different model from the generator, so its independence comes from the fresh
-   context, the skeptical instructions, and worktree isolation — weaker than a
-   cross-model reviewer, which is why Codex is preferred when present.
+   generator (the strongest form of the split). This depends only on the user's
+   `codex` CLI being installed and authenticated — no plugin, no coupling to any
+   plugin's internals.
+2. **The bundled `ticket:ticket-evaluator` agent (on Sonnet)** — the fallback
+   whenever the Codex CLI is absent or does not return a usable result (not
+   authenticated, rate-limited, timed out, empty). It is a Claude subagent
+   (`model: sonnet`) that is adversarial *by prompt* (assume-broken-until-proven,
+   run the tests, judge behavior not intent, edit nothing). Sonnet is a different
+   tier from the Opus-class generator; its independence comes from that tier gap
+   plus the fresh context, skeptical instructions, and worktree isolation.
 
-### Optional: enable cross-model review via Codex
-
-Install the Codex plugin once, and `/ticket-fix` will route reviews to it
-automatically:
-
-```
-/plugin marketplace add openai/codex-plugin-cc
-/plugin install codex@openai-codex
-```
+The Codex CLI is an **optional external dependency**: if `codex` is on the
+user's PATH and logged in, `/ticket-fix` uses it automatically; otherwise the
+Sonnet evaluator handles the review with no extra setup.
 
 ## Project Integration
 

@@ -1,7 +1,7 @@
 ---
 name: ticket-evaluator
-description: "Adversarial reviewer for a ticket fix built in a git worktree. Assumes the code is broken until proven otherwise, verifies by running it (not just reading), and returns a PASS/REJECT verdict. Used by /ticket-fix as the independent check on a non-trivial fix when an external reviewer (e.g. /codex:review) is not available."
-model: inherit
+description: "Adversarial reviewer for a ticket fix built in a git worktree. Assumes the code is broken until proven otherwise, verifies by running it (not just reading), and returns a PASS/REJECT verdict. Used by /ticket-fix as the fallback reviewer — runs on Sonnet when the Codex CLI is unavailable or does not return a usable result."
+model: sonnet
 tools: Read, Grep, Glob, Bash
 ---
 
