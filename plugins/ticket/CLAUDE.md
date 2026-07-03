@@ -123,6 +123,34 @@ span clones — a cloud run and a local run use separate git dirs. Cross-clone
 safety relies on git merge-conflict detection plus the `/ticket-apply` human
 gate.
 
+## The Review Gate (generator / evaluator)
+
+A non-trivial fix is checked by an **independent reviewer** before it counts as
+"ready to apply" — the agent that wrote the code never grades its own work.
+`/ticket-fix` picks the reviewer in this order:
+
+1. **Codex, if installed** — when `/codex:review` / `/codex:adversarial-review`
+   (from codex-plugin-cc) is available, the review is routed there. This runs a
+   **non-Claude** model, so the judgement is genuinely independent of the
+   generator (the strongest form of the split). `/codex:adversarial-review` is
+   preferred because it is built to challenge the implementation and design.
+2. **Bundled `ticket:ticket-evaluator` agent** otherwise — a Claude subagent
+   with `model: inherit` that is adversarial *by prompt* (assume-broken-until-
+   proven, run the tests, judge behavior not intent, edit nothing). It is not a
+   different model from the generator, so its independence comes from the fresh
+   context, the skeptical instructions, and worktree isolation — weaker than a
+   cross-model reviewer, which is why Codex is preferred when present.
+
+### Optional: enable cross-model review via Codex
+
+Install the Codex plugin once, and `/ticket-fix` will route reviews to it
+automatically:
+
+```
+/plugin marketplace add openai/codex-plugin-cc
+/plugin install codex@openai-codex
+```
+
 ## Project Integration
 
 Host-project specifics live in **the host repo's** `<ticket-dir>/CLAUDE.md`,
