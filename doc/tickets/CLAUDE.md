@@ -80,3 +80,25 @@ rely on git merge-conflict detection plus the `/ticket-apply` human gate.
 - `Lock TTL: 2h` — how long a claim lock is honored before a fresh run may
   steal it (assuming the previous owner died). Accepts `2h`, `90m`, `1h30m`,
   or bare seconds. Omit this line to use the 2h default.
+
+## Verification
+
+This repo ships Markdown skills, plugin manifests, and shell scripts — there is
+no test suite, so `/ticket-fix` verifies changes with syntax / schema / lint
+checks. Run from the repo root; each command fails loudly (non-zero) on a
+problem:
+
+```sh
+# 1) shell scripts parse
+for f in $(git ls-files '*.sh'); do bash -n "$f" || exit 1; done
+# 2) plugin & marketplace manifests are valid JSON
+for f in $(git ls-files '*plugin.json' '*marketplace.json'); do \
+  python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$f" || exit 1; done
+# 3) ticket state is consistent (frontmatter, invariants, locks)
+plugins/ticket/scripts/ticket-state.sh --dir doc/tickets lint --all
+```
+
+`shellcheck` is worth running manually on changed shell scripts when it's
+installed (`shellcheck -S warning <file>`), but it is kept out of the auto-run
+list above: it isn't present in the standard dev image, and `ticket-state.sh`
+has not yet been audited clean against it.
