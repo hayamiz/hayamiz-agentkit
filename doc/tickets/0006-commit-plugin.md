@@ -2,7 +2,7 @@
 title: Consolidate commit-session and commit-all into a commit plugin
 type: refactor
 priority: medium
-status: resolved
+status: awaiting-review
 created: 2026-07-04
 updated: 2026-07-04
 ---
@@ -163,3 +163,16 @@ repo now installs the `commit` plugin via the marketplace
 (`/plugin install commit@hayamiz-agentkit`) rather than `apm install`. `apm
 install` still deploys the external `skill-creator` but no longer the commit
 helpers.
+
+### Review
+
+- Evaluator: PASS — Sonnet `ticket:ticket-evaluator`. The Codex CLI is
+  installed, but its required `-c sandbox_mode="danger-full-access"` flag was
+  denied by the Claude Code auto-mode classifier, so `/ticket-fix` fell back to
+  the bundled Sonnet evaluator. It independently ran the repo `## Verification`
+  checklist (`bash -n`; JSON validity; `ticket-state.sh lint --all`) plus
+  rename-similarity (R100 on both moved SKILL.md) and dangling-reference sanity
+  checks — all clean, no blocking findings.
+- human-review: recommended — the migration changes how the commit helpers are
+  distributed/installed (APM → plugin marketplace), a user-visible packaging
+  change, so a human should confirm before apply.
