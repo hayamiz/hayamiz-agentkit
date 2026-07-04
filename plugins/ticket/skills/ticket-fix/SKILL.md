@@ -15,8 +15,10 @@ main conversation lean. Two paths:
   the working tree, leaving it dirty for `/commit-session`, exactly as before.
 - **Worktree** — a non-trivial change is built in an isolated git worktree on a
   `ticket/NNNN-<slug>` branch, checked by an independent **evaluator** subagent,
-  and committed to that branch. It lands on your branch only when you run
-  `/ticket-apply` — never automatically.
+  and committed to that branch. On PASS it moves to `awaiting-review` (or
+  `ready-to-apply` when the reviewer marks review skippable). It reaches your
+  branch only when you run `/ticket-apply` — never automatically; the human review
+  in between happens through `/ticket-review`.
 
 This skill **does not merge or commit to your current branch**. All ticket
 `status` changes go through the bundled `ticket-state.sh` script, and every
@@ -118,10 +120,18 @@ For each claimed non-trivial ticket, the parent:
      ```
 
      `codex review --base <ref>` reviews the current branch versus `<ref>`; it does not accept a custom prompt alongside `--base`, so this uses Codex's built-in review. The `-c sandbox_mode="danger-full-access"` override matters in containers/CI: Codex's own bubblewrap sandbox has to create a user/network namespace, which sandboxed environments often block (`bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted`) — without it `codex review` exits 0 but cannot inspect the diff. The review only reads git and files, and the surrounding agent/container is already the sandbox. Turn the result into the gate: a clean review ⇒ PASS; any blocking correctness/security finding ⇒ REJECT.
-   - **Fall back to the Sonnet evaluator** whenever the Codex CLI is **absent**, or its run does **not** return a usable result — a non-zero exit, a "not authenticated / login required" message, a rate-limit / quota error, a timeout, empty output, or a sandbox/tooling failure where it reports it could not inspect the diff (e.g. bubblewrap / namespace errors such as "RTM_NEWADDR: Operation not permitted"). Dispatch the bundled evaluator subagent with `subagent_type: ticket:ticket-evaluator` (it runs on Sonnet). Its prompt MUST include the full ticket text, the absolute worktree path `$WT` (instruct it to `cd "$WT"` first), and the verification commands. It assumes the code is broken until proven otherwise, runs the verification itself, judges behavior over intent, edits nothing, and returns `VERDICT: PASS | REJECT` with evidence.
+   - **Fall back to the Sonnet evaluator** whenever the Codex CLI is **absent**, or its run does **not** return a usable result — a non-zero exit, a "not authenticated / login required" message, a rate-limit / quota error, a timeout, empty output, or a sandbox/tooling failure where it reports it could not inspect the diff (e.g. bubblewrap / namespace errors such as "RTM_NEWADDR: Operation not permitted"). Dispatch the bundled evaluator subagent with `subagent_type: ticket:ticket-evaluator` (it runs on Sonnet). Its prompt MUST include the full ticket text, the absolute worktree path `$WT` (instruct it to `cd "$WT"` first), and the verification commands. It assumes the code is broken until proven otherwise, runs the verification itself, judges behavior over intent, edits nothing, and returns `VERDICT: PASS | REJECT` **plus a `human-review: recommended | optional` line** with evidence.
    - Whichever reviewer ran, it produces the single PASS/REJECT verdict used by steps 4–5. Note in the final summary which reviewer was used (Codex CLI or the Sonnet evaluator).
 
-4. **On PASS**: the parent records the verdict — append an `Evaluator: PASS — <reviewer + what was run>` line to the branch ticket's `## Resolution` and commit it — then leave the branch and worktree in place and **keep the claim lock**. The fix now awaits review via `/ticket-apply`.
+   **Obtain the `human-review` skip signal** (drives the PASS routing in step 4). The signal says whether a human must review before apply. `optional` requires ALL of: low-risk, **no user-visible behavior change**, no security-sensitive surface (auth, input handling, path handling), tests present. Default is conservative — treat anything unclear as `recommended`.
+   - **Sonnet evaluator path:** parse the `human-review: recommended | optional` line the evaluator already emitted (per its output contract). If it is missing or ambiguous, treat it as `recommended`.
+   - **Codex path:** `codex review --base` uses Codex's built-in review and cannot emit a custom signal, so after a Codex **PASS**, obtain the signal from a **dedicated lightweight Sonnet skip-judge**: dispatch a second `subagent_type: ticket:ticket-evaluator` in "skip-eligibility only" mode. Its prompt MUST tell it to `cd "$WT"`, read the branch diff against its base, apply the four `optional` criteria above, **edit nothing and run no verification**, and return **only** a single `human-review: recommended | optional` line (no PASS/REJECT — Codex already owns that verdict). On any failure, empty, or ambiguous result, default to `recommended`.
+
+4. **On PASS**: the parent records the verdict — append an `Evaluator: PASS — <reviewer + what was run>` line and the `human-review: <recommended|optional>` signal to the branch ticket's `## Resolution` and commit it — then **route on the pair**, keeping the branch, worktree, and claim lock in place either way:
+   - **PASS + `optional`** → `ticket-state.sh --dir <ticket-dir> transition NNNN --from in-progress --to ready-to-apply` (review skipped — low-risk). The fix is ready for `/ticket-apply`.
+   - **PASS + `recommended`** → `ticket-state.sh --dir <ticket-dir> transition NNNN --from in-progress --to awaiting-review`. The fix awaits human review via `/ticket-review`.
+
+   (Neither transition uses `--move`: the file stays in `<ticket-dir>/` on the branch; the `resolved`-move happens at apply time. Commit the status change on the branch.)
 
 5. **On REJECT** (*bounce back*): do not force it. In the **main-tree** ticket file, set the `## Triage` to `Mechanical fix: no` / `Requires user decision: yes` with a note quoting the reviewer's reason, and keep `status: open`. Then discard the attempt and release the lock:
 
@@ -148,11 +158,17 @@ After each subagent, verify its output before moving on (inspect the branch diff
 
 ### Step 6: Present the summary
 
-#### Ready to apply (worktree, evaluator PASS)
+#### Awaiting review (worktree, PASS + review recommended)
 
-| Ticket | Title | Branch | Evaluator |
-|--------|-------|--------|-----------|
-| #NNNN  | ...   | `ticket/NNNN-<slug>` | PASS — ... |
+| Ticket | Title | Branch | Status | Evaluator |
+|--------|-------|--------|--------|-----------|
+| #NNNN  | ...   | `ticket/NNNN-<slug>` | `awaiting-review` | PASS — ... |
+
+#### Ready to apply (worktree, PASS + review skipped — low-risk)
+
+| Ticket | Title | Branch | Status | Evaluator |
+|--------|-------|--------|--------|-----------|
+| #NNNN  | ...   | `ticket/NNNN-<slug>` | `ready-to-apply` | PASS — ... (`human-review: optional`) |
 
 #### Fixed in place (dirty working tree)
 
@@ -174,15 +190,17 @@ After each subagent, verify its output before moving on (inspect the branch diff
 
 End with the right next step(s):
 
-- "Run `/ticket-apply` to review and land the N worktree fixes."
+- "Run `/ticket-review` to review the N `awaiting-review` worktree fixes."
+- "Run `/ticket-apply` to land the K `ready-to-apply` worktree fixes (review skipped — low-risk)."
 - "Run `/commit-session` to commit the M in-place fixes."
 
 ## Notes
 
 - **Commit proactively in the worktree.** Isolation is exactly what makes committing safe, so once a worktree fix is done, commit it — the generator commits the fix (+ tests) and then the resolved ticket, and the evaluator commits its verdict, leaving the worktree clean. Do not leave finished work uncommitted. This only applies to the worktree path; the in-place path touches your current branch directly, so it must *not* auto-commit — it stays dirty for `/commit-session`.
 - **Does not touch your current branch.** Worktree commits land on their own `ticket/NNNN-<slug>` branch and reach your branch only through `/ticket-apply` (the human gate). The plugin's "never lands on your branch automatically" rule is upheld — only `/ticket-apply` merges.
+- **Review gate is worktree-only.** A worktree PASS lands in `awaiting-review` (review recommended → run `/ticket-review`) or `ready-to-apply` (review skipped — low-risk → run `/ticket-apply`). The file stays in `<ticket-dir>/` on the branch; the `resolved`-move happens later, at apply time. In-place (trivial) fixes never take these states — they go straight to `resolved` + dirty tree, gated by `/commit-session`.
 - **Status is script-owned.** Never edit the `status:` line or `git mv` a ticket by hand — always use `ticket-state.sh transition`, which keeps the `status ⇔ location` invariant.
-- **Claim before work, release when done.** A ticket is locked for the whole fix→await-apply window; `/ticket-apply` releases worktree locks on land/reject. Bounced and in-place fixes release their own lock.
-- **Evaluator separation is the point.** The agent that wrote the code never grades its own work; a separate reviewer that *runs* the change decides PASS. Try the **Codex CLI** first (`codex review --base <base>` from the worktree) for a genuinely independent, non-Claude judgement; if it is unavailable or does not return a usable result (no auth, rate-limited, timeout, empty), fall back to the bundled `ticket:ticket-evaluator` subagent (Claude on **Sonnet**, adversarial by prompt). A worktree fix with no PASS is not "Ready to apply".
+- **Claim before work, release when done.** A ticket is locked for the whole fix→review→apply window; `/ticket-review` releases the lock on reject, `/ticket-apply` releases worktree locks on land/reject. Bounced and in-place fixes release their own lock.
+- **Evaluator separation is the point.** The agent that wrote the code never grades its own work; a separate reviewer that *runs* the change decides PASS **and** the `human-review` skip signal. Try the **Codex CLI** first (`codex review --base <base>` from the worktree) for a genuinely independent, non-Claude judgement; because Codex cannot emit a custom signal, a lightweight Sonnet skip-judge supplies `human-review:` after a Codex PASS. If Codex is unavailable or does not return a usable result (no auth, rate-limited, timeout, empty), fall back to the bundled `ticket:ticket-evaluator` subagent (Claude on **Sonnet**, adversarial by prompt), which emits both the verdict and the skip signal. A worktree fix with no PASS is neither `awaiting-review` nor `ready-to-apply`.
 - **Do not skip user-decision tickets**, and keep each fix focused — if a fix organically wants to grow, that's a signal it isn't mechanical; bounce it back.
 - **Per-ticket subagent isolation is non-negotiable** — it keeps the skill usable on projects with many tickets without blowing up the parent context.
