@@ -480,3 +480,12 @@ available in this environment, so the optional shellcheck pass was skipped (the
 edit is a one-word string change). The Artifact rendering is described in the
 skill body per `artifact-design`, not implemented as static HTML (it is generated
 per-fix at review time).
+
+Evaluator: PASS — Sonnet `ticket:ticket-evaluator` (Codex CLI was unavailable:
+`codex review` with the required `sandbox_mode=danger-full-access` override was
+denied by the environment's safety classifier, so per the skill's documented
+fallback the Sonnet evaluator ran instead). It ran the repo `## Verification`
+block (all exit 0), drove its own throwaway fixture through
+`open → awaiting-review → ready-to-apply → resolved --move` (lint clean at each
+step, correct location invariant), and read the diff to confirm D1–D8 are
+genuinely implemented (not just claimed). Worktree left clean.
