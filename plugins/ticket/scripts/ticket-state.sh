@@ -57,7 +57,7 @@ _contains() {
 _pad() {
   case $1 in
     ''|*[!0-9]*) printf '%s' "$1" ;;
-    *) printf '%04d' "$1" ;;
+    *) printf '%04d' "$((10#$1))" ;;   # 10# forces base-10 so 0008/0009 aren't parsed as octal
   esac
 }
 
