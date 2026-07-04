@@ -2,7 +2,7 @@
 title: Consolidate commit-session and commit-all into a commit plugin
 type: refactor
 priority: medium
-status: open
+status: resolved
 created: 2026-07-04
 updated: 2026-07-04
 ---
@@ -103,3 +103,63 @@ churn. This mirrors how the `ticket` plugin owns `ticket-*` skills.
   command references inside the `ticket` plugin need NO change — the command name
   is preserved. Verify with the repo `## Verification` block (bash -n, JSON
   validity, ticket lint).
+
+## Resolution
+
+Migrated `commit-session` / `commit-all` from standalone APM skills to a single
+marketplace plugin, `commit`. Commands are unchanged (`/commit-session`,
+`/commit-all`).
+
+Changes (commit `21ca110`):
+
+- **New plugin skeleton**: `plugins/commit/.claude-plugin/plugin.json`
+  (`name: "commit"`, `version: "0.1.0"`, author Yuto Hayamizu, description
+  covering both helpers), mirroring `plugins/gardener` / `plugins/ticket`.
+- **Skills moved verbatim** with `git mv` (recorded as 100%-similarity renames):
+  `skills/commit-session` → `plugins/commit/skills/commit-session` and
+  `skills/commit-all` → `plugins/commit/skills/commit-all`. SKILL.md bodies
+  unchanged; the `/commit-all` cross-reference inside `commit-session` still
+  resolves because the command name is preserved.
+- **Marketplace**: added the `commit` entry (`source: "./plugins/commit"`) to
+  `.claude-plugin/marketplace.json`, keeping gardener/ticket.
+- **APM dropped**: removed the two `commit-*` dependency lines from `apm.yml`
+  and their two `virtual_path` blocks from `apm.lock.yaml`; kept
+  `skill-creator` in both.
+- **Docs reconciled**: root `CLAUDE.md` (distribution-channels intro, layout
+  tree, the former "consumes its own APM skills" note reworded — the repo no
+  longer dogfoods its own skills via APM; `apm.yml` now lists only the external
+  `skill-creator` — and the Commands section, with a
+  `/plugin install commit@hayamiz-agentkit` line); `README.md` (layout listing,
+  plugin install list + post-install command list, and the Skills/APM section
+  rewritten since no standalone skills ship from here anymore); `skills/CLAUDE.md`
+  (note that `skills/` currently ships no standalone skills, generic
+  add-a-skill guidance retained). The `gardener/best-practices-checklist.md`
+  had no reference to the commit skills' location, so it was left untouched, as
+  were the `/commit-session` invocations inside the `ticket` plugin (command
+  name unchanged).
+
+### Tests / verification
+
+This repo has **no unit-test suite and no test framework** — none was
+introduced, which is correct here (it ships Markdown skills, JSON plugin
+manifests, and shell scripts). Verification is the syntax/schema/lint checklist
+from `doc/tickets/CLAUDE.md`, all run from the worktree root and all passing:
+
+- `bash -n` over every tracked `*.sh` — PASS (exit 0)
+- JSON validity over every `*plugin.json` / `*marketplace.json` (incl. the new
+  `plugins/commit/.claude-plugin/plugin.json`) — PASS (exit 0)
+- `ticket-state.sh lint --all` — PASS (0 errors, 0 warnings)
+
+`git ls-files plugins/commit/` shows both moved SKILL.md files + the new
+plugin.json; `git ls-files skills/commit-session skills/commit-all` shows
+nothing (fully moved). No stray `skills/commit-*` path or APM-distribution
+references remain (grep confirmed only the unchanged command names and the new
+`commit` plugin location).
+
+### Follow-up
+
+To actually use `/commit-session` / `/commit-all` in this working tree, the
+repo now installs the `commit` plugin via the marketplace
+(`/plugin install commit@hayamiz-agentkit`) rather than `apm install`. `apm
+install` still deploys the external `skill-creator` but no longer the commit
+helpers.
