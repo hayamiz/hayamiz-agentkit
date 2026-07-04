@@ -5,7 +5,5 @@ author: Yuto Hayamizu
 dependencies:
   apm:
   - anthropics/skills/skills/skill-creator
-  - hayamiz/hayamiz-agentkit/skills/commit-all
-  - hayamiz/hayamiz-agentkit/skills/commit-session
   mcp: []
 scripts: {}

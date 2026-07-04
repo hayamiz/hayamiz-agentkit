@@ -12,17 +12,18 @@ Two distribution channels:
   prefix on the skill directory (e.g. `ticket-fix/` → `/ticket-fix`).
 - **Skills** (`skills/`) — shipped through [APM](https://github.com/apm-pkg/apm).
   Installed via `apm install hayamiz/hayamiz-agentkit/skills/<name>`, deployed
-  to `.claude/skills/<name>/` with no namespace prefix.
+  to `.claude/skills/<name>/` with no namespace prefix. (This repo currently
+  ships no standalone skills of its own — the commit helpers are now the
+  `commit` plugin; see below.)
 
 ## Repository Layout
 
 ```
-skills/                 Standalone skills, shipped via APM
-  commit-all/
-  commit-session/
+skills/                 Standalone skills, shipped via APM (currently none — see plugins/commit)
 plugins/                Claude Code plugins, shipped via marketplace.json
   gardener/             Repo-health audit plugin.
   ticket/               File-based ticket workflow (init / create / grill / check / triage / fix).
+  commit/               Session-aware git commit helpers (/commit-session, /commit-all).
 .claude-plugin/
   marketplace.json      Marketplace manifest listing plugins/* for Claude Code.
 apm.yml                 APM project manifest (this repo's own dependencies — skills only)
@@ -34,10 +35,12 @@ apm_modules/            APM install output (gitignored)
 .devcontainer/          Dev container config
 ```
 
-- **The repo consumes its own APM skills**: `apm.yml` lists this repo's
-  `skills/commit-*` as APM dependencies so `apm install` deploys them into
-  `.claude/skills/` for use in this working tree. Plugins are loaded separately
-  through Claude Code's plugin marketplace, not APM.
+- **APM dependencies**: the repo no longer dogfoods its own skills via APM —
+  `apm.yml` now lists only the external `anthropics/skills/skills/skill-creator`,
+  which `apm install` deploys into `.claude/skills/`. The commit helpers that
+  used to be dogfooded this way are now the `commit` plugin, loaded through the
+  Claude Code plugin marketplace, not APM. Plugins are always loaded via the
+  marketplace, not APM.
 
 ## When Adding or Editing Content
 
@@ -57,10 +60,12 @@ apm_modules/            APM install output (gitignored)
   `.claude/skills/`.
 - `/plugin marketplace add hayamiz/hayamiz-agentkit` — register the marketplace
   for plugins. Then `/plugin install ticket@hayamiz-agentkit`,
-  `/plugin install gardener@hayamiz-agentkit`.
+  `/plugin install gardener@hayamiz-agentkit`,
+  `/plugin install commit@hayamiz-agentkit`.
 - `/commit-session` — commit only the files changed in the current session,
-  grouped into semantically coherent commits.
-- `/commit-all` — commit every dirty file, similarly grouped.
+  grouped into semantically coherent commits (provided by the `commit` plugin).
+- `/commit-all` — commit every dirty file, similarly grouped (provided by the
+  `commit` plugin).
 - `/ticket-init` / `/ticket-create` / `/grill-with-ticket` / `/ticket-check` /
   `/ticket-triage` / `/ticket-fix` — file-based ticket workflow (provided by the
   `ticket` plugin). See each skill's `SKILL.md` for details.

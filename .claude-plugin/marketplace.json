@@ -13,6 +13,11 @@
       "name": "ticket",
       "source": "./plugins/ticket",
       "description": "File-based, in-repo ticket workflow: init → create → grill → check → triage → fix. Tickets are numbered Markdown files in the repository, separate from GitHub Issues."
+    },
+    {
+      "name": "commit",
+      "source": "./plugins/commit",
+      "description": "Session-aware git commit helpers: /commit-session commits only files changed this session, /commit-all commits every dirty file — both grouped into semantically coherent Conventional-Commits commits."
     }
   ]
 }

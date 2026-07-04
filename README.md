@@ -12,11 +12,11 @@ Two distribution channels:
 
 ```
 skills/     APM-distributed skills (one directory per skill, each with SKILL.md)
-  commit-all/      Commit all dirty files in the worktree, grouped semantically
-  commit-session/  Commit only the files changed in the current session
+            (currently none shipped from here — the commit helpers are now the commit plugin)
 plugins/    Claude Code plugin marketplace plugins (one directory per plugin)
   gardener/  Repository health audit — docs sync, best-practices checks, etc.
   ticket/    File-based ticket workflow (init / create / check / triage / fix)
+  commit/    Session-aware git commit helpers (/commit-session, /commit-all)
 .claude-plugin/
   marketplace.json   Marketplace manifest exposing plugins/ as a Claude Code plugin source
 ```
@@ -36,27 +36,21 @@ Register the marketplace and install plugins with Claude Code's plugin commands.
 # Install plugins
 /plugin install ticket@hayamiz-agentkit
 /plugin install gardener@hayamiz-agentkit
+/plugin install commit@hayamiz-agentkit
 ```
 
 After installation the following commands become available:
-`/ticket-init`, `/ticket-create`, `/ticket-check`, `/ticket-triage`, `/ticket-fix`, `/gardener`.
+`/ticket-init`, `/ticket-create`, `/ticket-check`, `/ticket-triage`, `/ticket-fix`, `/gardener`,
+`/commit-session`, `/commit-all`.
 
 ### Skills (APM)
 
-Requires the [`apm`](https://github.com/apm-pkg/apm) CLI.
+Requires the [`apm`](https://github.com/apm-pkg/apm) CLI. This repo currently
+ships no standalone skills of its own via APM — the commit helpers that used to
+live here are now the `commit` plugin (install it via the marketplace above).
 
-```sh
-apm install hayamiz/hayamiz-agentkit/skills/commit-all
-apm install hayamiz/hayamiz-agentkit/skills/commit-session
-```
-
-Add `-g` to install globally into `~/.apm/`:
-
-```sh
-apm install -g hayamiz/hayamiz-agentkit/skills/commit-session
-```
-
-To reinstall all dependencies declared in this repo's own `apm.yml` (`skill-creator` + the two skills above):
+To reinstall the external dependencies declared in this repo's own `apm.yml`
+(currently just `skill-creator`):
 
 ```sh
 apm install

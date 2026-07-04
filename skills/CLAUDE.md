@@ -3,6 +3,11 @@
 This directory contains standalone skills. Each subdirectory is one skill,
 shipped as an APM package.
 
+> **Currently empty of skills.** No standalone skills ship from here right now —
+> the former `commit-session` / `commit-all` skills became the `commit` plugin
+> (`plugins/commit/`), distributed through the marketplace. The guidance below
+> stays as the recipe for adding future standalone skills.
+
 Reference: <https://code.claude.com/docs/en/skills>
 
 ## Directory Structure
