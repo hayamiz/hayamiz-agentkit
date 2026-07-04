@@ -67,7 +67,7 @@ Sort candidates by priority (`critical` > `high` > `medium` > `low`), then by nu
    - exit `3` → another agent holds it; **skip** and list it under "Skipped (claimed elsewhere)".
    - exit `4` → resolved/blocked/missing; skip.
 
-2. **Decide the path.** Start from Triage's `Fix strategy`. Use **in-place** only when the change is genuinely small and self-contained (`Complexity: low`, a single file, a few lines). Anything larger, touching multiple files, or uncertain → **worktree**. When in doubt, prefer worktree.
+2. **Decide the path.** Start from Triage's `Fix strategy`. Use **in-place** only when the change is genuinely small and self-contained — a few lines. Judge by **size, not file count**: "a few lines" is the deciding factor, so a large single-file addition (a new doc, a new module) belongs in a **worktree** even though it touches one file, while a couple of trivial edits across two files can stay in-place. When in doubt, prefer worktree.
 
 **Context discipline**: you (the parent) orchestrate only — read tickets, claim, create worktrees, dispatch subagents, verify their output, present the summary. Do not read source or perform fixes directly in the main conversation.
 

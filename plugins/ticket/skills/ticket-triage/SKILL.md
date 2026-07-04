@@ -65,6 +65,18 @@ Also estimate, so `/ticket-fix` can choose an isolation strategy:
 - **Affected files**: roughly how many files the fix will touch (a count, plus the main paths if known).
 - **Fix strategy**: `in-place` / `worktree` — recommend `in-place` only for a small, self-contained change (`Complexity: low`, a single file, a few lines); otherwise recommend `worktree`. `/ticket-fix` makes the final call, but this is the default it starts from.
 
+**Applying these to two common cases:**
+
+- **Docs / content tickets**: when the ticket supplies the content outline and
+  defers styling to "match the repo", calibrating wording, density, or voice
+  within that outline is ordinary implementer discretion — *not* a
+  `Requires user decision`. Lean `Mechanical fix: yes` unless a genuine content
+  or structural choice is left open.
+- **Sizing `in-place` vs `worktree`**: judge by *size, not file count*.
+  `in-place` is for genuinely small edits (a few lines); "a few lines" dominates
+  "a single file". A large single-file addition (a new doc, a new module) should
+  be `worktree`.
+
 **If `Mechanical fix` is `no`**, before concluding the triage the subagent must:
 
 1. Research the relevant source code, specs, and dependencies in depth.

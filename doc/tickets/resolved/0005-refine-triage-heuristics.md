@@ -2,7 +2,7 @@
 title: Refine triage heuristics — docs-task mechanicality and the in-place/worktree size cue
 type: enhancement
 priority: low
-status: open
+status: resolved
 created: 2026-07-03
 updated: 2026-07-03
 ---
@@ -63,3 +63,30 @@ and that "a few lines" dominates over "one file". A large single-file addition
   Unambiguous — the ticket already states the problem, the solution, and the target
   sections; no code, no new files, no design choices. (Small, self-contained edits, so
   `in-place` per the very heuristic Finding 3 clarifies.)
+
+## Resolution
+
+Docs-only change — both findings encoded as triage-heuristic guidance across two
+skill files. No code paths touched, so no tests added.
+
+- **Finding 2 & 3 — `plugins/ticket/skills/ticket-triage/SKILL.md`** (rubric
+  under "#### Triage rubric (to include in every subagent prompt)"): inserted an
+  **"Applying these to two common cases:"** note after the `Fix strategy` bullet
+  covering (a) *docs / content tickets* — outline-supplied, style-deferred
+  wording/density/voice calibration is implementer discretion, not a
+  `Requires user decision`, so lean `Mechanical fix: yes`; and (b) *sizing
+  `in-place` vs `worktree`* — judge by size, not file count, with "a few lines"
+  dominating "a single file" and large single-file additions going to
+  `worktree`.
+- **Finding 3 — `plugins/ticket/skills/ticket-fix/SKILL.md`** (Step 3, item 2
+  "Decide the path"): rewrote the strategy sentence so size dominates file count
+  — a large single-file addition belongs in a `worktree` even though it touches
+  one file, while a couple of trivial edits across two files can stay in-place.
+
+Verification (repo `## Verification` from `doc/tickets/CLAUDE.md`) all passed:
+
+- `bash -n` over all tracked `*.sh` — OK.
+- JSON validity over all `*plugin.json` / `*marketplace.json` — OK.
+- `ticket-state.sh --dir doc/tickets lint --all` — `0 error(s), 0 warning(s)`.
+
+No spec declared → spec-update step skipped.
