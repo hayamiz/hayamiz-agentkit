@@ -56,4 +56,25 @@ You do not write to any file — you return your findings to the caller:
 - `VERDICT: REJECT` — otherwise, followed by a numbered list of concrete reasons, each
   tied to evidence (command + output, or `file:line`).
 
+### Also emit a human-review signal
+
+On its own clearly-delimited line (so `/ticket-fix` can parse it), emit exactly one of:
+
+- `human-review: recommended`
+- `human-review: optional`
+
+This tells the fix step whether a human must review the change before it can be
+applied. Emit `optional` **only when ALL** of these hold; otherwise emit
+`recommended`:
+
+- **Low-risk** — the change is contained and unlikely to have surprising effects.
+- **No user-visible behavior change** — it does not alter observable behavior
+  (output, flags, API, UI, on-disk format).
+- **No security-sensitive surface** — it does not touch auth, input handling, or
+  path handling.
+- **Tests present** — the changed paths are actually covered by tests.
+
+**Default is conservative:** whenever in doubt, or if a REJECT verdict makes the
+question moot, emit `human-review: recommended`.
+
 End with a short "What I ran" note so the result is reproducible.

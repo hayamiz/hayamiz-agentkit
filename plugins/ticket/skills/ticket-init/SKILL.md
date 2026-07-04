@@ -112,7 +112,7 @@ file with YAML frontmatter. Tickets are managed by the `ticket` plugin
 title: <one-line human-readable title>
 type: bug | feature | enhancement | refactor | docs | test | chore
 priority: critical | high | medium | low
-status: open | in-progress | blocked | resolved
+status: open | in-progress | blocked | awaiting-review | ready-to-apply | resolved
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
 ---
@@ -147,7 +147,12 @@ Added by `/ticket-fix` on resolution:
 - `open` — newly created, not yet triaged.
 - `in-progress` — being worked on (set by `/ticket-fix`).
 - `blocked` — waiting on external input; keep in the open directory.
-- `resolved` — done; file moves to `<ticket-dir>/resolved/`.
+- `awaiting-review` — a worktree fix passed the evaluator and needs human review
+  (set by `/ticket-fix`; branch-local). Stays in `<ticket-dir>/`, not `resolved/`.
+- `ready-to-apply` — approved via `/ticket-review` (or review skipped as low-risk);
+  ready for `/ticket-apply` to merge. Stays in `<ticket-dir>/`, not `resolved/`.
+- `resolved` — landed on your branch; file moves to `<ticket-dir>/resolved/` (the
+  move happens at `/ticket-apply` time).
 
 ## Project integration
 
