@@ -2,7 +2,7 @@
 title: Consolidate commit-session and commit-all into a commit plugin
 type: refactor
 priority: medium
-status: ready-to-apply
+status: resolved
 created: 2026-07-04
 updated: 2026-07-04
 ---
