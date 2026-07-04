@@ -2,7 +2,7 @@
 title: Consolidate ticket-commit decisions at the review/apply human gates
 type: enhancement
 priority: medium
-status: open
+status: in-progress
 created: 2026-07-04
 updated: 2026-07-04
 ---
@@ -259,3 +259,53 @@ an in-flight fix as an ordinary `open` ticket. Accepted as a minor UX cost — t
 active claim lock (`ticket-state.sh status` / `/ticket-lint`) and the
 `## Resolution` marker already distinguish it. Optionally `/ticket-check` could
 annotate "(in flight — claimed)" by reading locks, but that is out of scope here.
+
+## Resolution
+
+Implemented D1–D11: during a worktree fix the ticket file stays main-resident
+(never on the branch), the branch carries source + tests only, and the
+review-gate progress is a `Review-state: awaiting-review | ready-to-apply` marker
+in `## Resolution` — not a `status:` value. `status:` stays `open` until
+`/ticket-apply` does `open → resolved --move`.
+
+Files changed:
+
+- `plugins/ticket/scripts/ticket-state.sh` — `VALID_STATUS` reduced to
+  `open in-progress blocked resolved` (D3). No other logic referenced the two
+  removed states (`_relocate` / lint invariant special-case only `resolved`).
+- `doc/tickets/CLAUDE.md` — frontmatter `status` enum + lifecycle drop the two
+  states; add the main-resident + `Review-state:` marker note (D3).
+- `plugins/ticket/skills/ticket-init/SKILL.md` — Appendix per-project template
+  enum + lifecycle updated to match (D3).
+- `plugins/ticket/skills/ticket-fix/SKILL.md` — deleted the Step 5.1 Precondition
+  (D1); generator now commits source + tests only, no status transition / no
+  `## Resolution` / no ticket commit (D9, resolving the Step 5.2 leftover); parent
+  writes `## Resolution` + the `Review-state:` marker on the main-tree ticket
+  (D2/D4); PASS routing sets the marker instead of a status transition; header
+  `description:`, intro bullets, Step 6 tables, and Notes rewritten to the marker
+  model.
+- `plugins/ticket/skills/ticket-review/SKILL.md` — discovery reads the main-tree
+  ticket + `Review-state:` marker via `git worktree list` + locks, not a branch
+  ticket / status (D5); approve rewrites the marker to `ready-to-apply` (D4, no
+  status transition); reject strips the `## Resolution` markers (D10);
+  `description:` updated.
+- `plugins/ticket/skills/ticket-apply/SKILL.md` — discovery via the marker (D5);
+  land = `git merge --no-ff` the source-only branch then `open → resolved --move`
+  + commit on your branch (D6); escape hatch gated on the `awaiting-review` marker
+  (D7); reject strips markers (D10); `description:` updated.
+- `plugins/ticket/skills/ticket-check/SKILL.md` — note that an in-flight worktree
+  fix shows as `open`, distinguishable by lock + marker; no new lock-reading logic
+  (D11).
+- `plugins/ticket/CLAUDE.md` — lifecycle, State-Management, review-gate, and
+  Commits-and-Merges sections rewritten to the main-resident + marker model
+  (D1/D2).
+- `plugins/ticket/.claude-plugin/plugin.json` — `version` `0.5.1` → `0.6.0`
+  (behavioral change).
+
+Verification (repo `## Verification` block, all pass):
+
+- `bash -n` over all `*.sh` — OK.
+- JSON validity over `*plugin.json` / `*marketplace.json` — OK.
+- `ticket-state.sh --dir doc/tickets lint --all` — 0 error(s), 0 warning(s).
+- `shellcheck` not installed in this image — skipped (kept out of the auto-run
+  list per repo policy).
