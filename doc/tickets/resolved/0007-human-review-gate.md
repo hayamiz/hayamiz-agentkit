@@ -4,7 +4,7 @@ type: feature
 priority: medium
 created: 2026-07-04
 updated: 2026-07-04
-status: open
+status: resolved
 ---
 
 ## Description
@@ -412,3 +412,71 @@ flagged this as the one gap in D1–D7):
   whichever is chosen so the two reviewer paths route consistently.
 - Default remains conservative: absent a clear `optional`, treat as
   `recommended` → `awaiting-review`.
+
+## Resolution
+
+Implemented D1–D8 across 9 files (1 new skill + 8 edits).
+
+**What changed per file**
+
+- `plugins/ticket/scripts/ticket-state.sh` — added `awaiting-review` and
+  `ready-to-apply` to `VALID_STATUS` (D1). No transition/relocate/lint changes:
+  `cmd_transition` already accepts any valid `--from`/`--to` pair and the lint
+  `status ⇔ location` invariant already keys on `resolved` only, so the two new
+  non-`resolved` states are automatically kept out of `resolved/`.
+- `plugins/ticket/skills/ticket-review/SKILL.md` — **new** human-only skill
+  (`disable-model-invocation: true`, `allowed-tools: Bash(*) Read Glob Grep
+  Artifact`). Resolves `<ticket-dir>`, runs the lint gate, discovers
+  `awaiting-review` fixes by branch scan, assembles the D5 review material (3
+  required + 4 extra categories), presents inline or as a Claude Artifact per the
+  D6 threshold (diff > ~200 lines OR > 5 files), and offers approve
+  (→ `ready-to-apply`) / reject (D4 discard + bounce to needs-user-decision) /
+  defer.
+- `plugins/ticket/agents/ticket-evaluator.md` — extended the output contract with
+  a `human-review: recommended | optional` line; `optional` requires all D2
+  criteria, conservative `recommended` default (D2/D8).
+- `plugins/ticket/skills/ticket-fix/SKILL.md` — worktree PASS now routes on the
+  pair: PASS+optional → `ready-to-apply`, PASS+recommended → `awaiting-review`
+  (D2), neither with `--move`. In-place path left untouched (D3). Summary tables /
+  next-step wording split into awaiting-review vs ready-to-apply and name
+  `/ticket-review` / `/ticket-apply` (D7).
+- `plugins/ticket/skills/ticket-apply/SKILL.md` — operates over `ready-to-apply`
+  as the normal case; discovery reads the branch `status:`; review-decision UI
+  moved out (reject kept as a discard path). Resolved-move now happens here on the
+  user's branch (`--from ready-to-apply --to resolved --move`); the old stale
+  open+resolved duplicate handling (Step 5.1) removed (D1). Lists review-skipped
+  fixes distinctly (D2). Added the direct-invoke escape hatch for `awaiting-review`
+  (D7).
+- `plugins/ticket/CLAUDE.md` — skills table (+ `/ticket-review` row), typical-flow
+  block, lifecycle (2 new states + branch-local / resolved-move-at-apply notes),
+  a new "independent PASS vs. human review" subsection, and the commits/merges
+  note (D7).
+- `doc/tickets/CLAUDE.md` and `plugins/ticket/skills/ticket-init/SKILL.md`
+  Appendix — status enum + lifecycle list extended with the two states and the
+  "stay under `<ticket-dir>/`, only `resolved` lives in `resolved/`" note (D7).
+- `plugins/ticket/.claude-plugin/plugin.json` — `version` 0.4.3 → 0.5.0; flow
+  string `… → fix → review → apply` (D7).
+
+**D8 mechanism (Codex path).** `codex review --base` takes no custom prompt, so
+after a Codex PASS `/ticket-fix` obtains the skip signal from a **dedicated
+lightweight Sonnet skip-judge**: a second `ticket:ticket-evaluator` dispatch in
+"skip-eligibility only" mode that reads the branch diff, applies the four D2
+`optional` criteria, edits nothing / runs no verification, and returns only a
+`human-review: recommended | optional` line (Codex keeps ownership of PASS/REJECT).
+The Sonnet evaluator path emits the signal directly. Any failure/ambiguity
+defaults to `recommended` so both reviewer paths route consistently.
+
+**Verification.** Repo `## Verification` block passed: `bash -n` over all `*.sh`;
+JSON validity over all `*plugin.json` / `*marketplace.json`; and `ticket-state.sh
+lint --all` (0 errors, 0 warnings) using the repo copy (exercising the
+`VALID_STATUS` edit). A throwaway `9999-fixture.md` was driven
+`open → awaiting-review → ready-to-apply` (lint clean at each step, file stayed in
+`doc/tickets/`) then `ready-to-apply → resolved --move` (moved to
+`doc/tickets/resolved/`, lint clean), then deleted — no residue.
+
+**Follow-ups.** The change takes effect only after `/ticket-apply` merges this and
+the plugin is reinstalled (`/plugin` refresh picks up 0.5.0). `shellcheck` was not
+available in this environment, so the optional shellcheck pass was skipped (the
+edit is a one-word string change). The Artifact rendering is described in the
+skill body per `artifact-design`, not implemented as static HTML (it is generated
+per-fix at review time).
