@@ -1,0 +1,8 @@
+{
+  "name": "commit",
+  "description": "Session-aware git commit helpers: /commit-session commits only files changed this session, /commit-all commits every dirty file — both grouped into semantically coherent Conventional-Commits commits.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Yuto Hayamizu"
+  }
+}
