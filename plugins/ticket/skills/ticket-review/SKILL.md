@@ -1,6 +1,6 @@
 ---
 name: ticket-review
-description: "Human review gate for worktree fixes awaiting review. Presents the full review material (summary, functional impact, diff, traceability, verification/reviewer provenance, change map, risk) for each awaiting-review fix — inline for small changes, as a Claude Artifact for large ones — then, on your OK, moves it to ready-to-apply. Human-only. Use after /ticket-fix reports fixes awaiting review, before /ticket-apply."
+description: "Human review gate for worktree fixes awaiting review. Discovers fixes by their main-tree ticket's Review-state marker (their status stays open) plus live worktrees/locks, presents the full review material (summary, functional impact, diff, traceability, verification/reviewer provenance, change map, risk) — inline for small changes, as a Claude Artifact for large ones — then, on your OK, rewrites the marker to ready-to-apply. Human-only. Use after /ticket-fix reports fixes awaiting review, before /ticket-apply."
 argument-hint: "[ticket-number]"
 allowed-tools: Bash(*) Read Glob Grep Artifact
 disable-model-invocation: true
@@ -9,16 +9,21 @@ disable-model-invocation: true
 # Ticket Review
 
 Conduct the **human review** of the non-trivial fixes that `/ticket-fix` built in
-isolated worktrees and left in `awaiting-review`. For each, present the review
-material so you can judge "is this fix good enough to land?", then record your
-decision. This is the review step that sits **between** `/ticket-fix` and
-`/ticket-apply`: review answers whether to land; apply is the mechanical
+isolated worktrees and marked `Review-state: awaiting-review`. For each, present
+the review material so you can judge "is this fix good enough to land?", then
+record your decision. This is the review step that sits **between** `/ticket-fix`
+and `/ticket-apply`: review answers whether to land; apply is the mechanical
 consequence of a yes.
+
+The ticket file is **main-resident** — it never rode the `ticket/NNNN` branch, its
+`status:` stays `open`, and the review-gate progress lives as a `Review-state:`
+marker in its `## Resolution`. This skill reads that main-tree ticket, not a
+branch ticket.
 
 **Human-only** (`disable-model-invocation: true`) — like `/ticket-apply`, Claude
 never self-invokes it; a human runs it deliberately. This skill **does not merge**
-to your branch; approving only moves a fix to `ready-to-apply`, and `/ticket-apply`
-does the merge.
+to your branch; approving only rewrites the marker to `ready-to-apply`, and
+`/ticket-apply` does the merge.
 
 ## Instructions
 
@@ -34,28 +39,32 @@ If it exits non-zero, show the output and stop until it's resolved.
 
 ### Step 2: Discover fixes awaiting review
 
-An awaiting-review fix is a `ticket/NNNN-<slug>` branch with a live worktree under
-the shared git dir whose branch ticket is `status: awaiting-review`. Enumerate:
+The branch carries no ticket file and the main-tree ticket's `status:` is `open`,
+so discovery is **worktree/lock-driven, not status-driven**. An awaiting-review
+fix is a `ticket/NNNN-<slug>` branch with a live worktree under the shared git dir
+whose **main-tree** ticket carries `Review-state: awaiting-review`. Enumerate:
 
 ```
 git worktree list --porcelain          # worktree path + branch for each
 ${CLAUDE_PLUGIN_ROOT}/scripts/ticket-state.sh --dir <ticket-dir> status   # lock owner / branch / stale flags
 ```
 
-Keep only worktrees whose branch matches `ticket/*`. For each, read that branch's
-ticket file (`<ticket-dir>/NNNN-*.md` on the branch — it stays there, not in
-`resolved/`, until apply) and keep those with `status: awaiting-review`. A branch
-without an `Evaluator: PASS` line in `## Resolution` should be treated with
-suspicion — surface it, don't hide it.
+Keep only worktrees whose branch matches `ticket/*`. For each, read the
+**main-tree** ticket file (`<ticket-dir>/NNNN-*.md` in your working tree — it never
+rode the branch) and keep those whose `## Resolution` has
+`Review-state: awaiting-review`. A `ticket/*` worktree whose main-tree ticket lacks
+a clear marker (or lacks an `Evaluator: PASS` line) is treated as awaiting-review
+and surfaced, never hidden.
 
 If `$ARGUMENTS` contains a ticket number, narrow to just that one. If there are no
 awaiting-review fixes, report it (point the user at `/ticket-apply` for any
-`ready-to-apply` fixes that skipped review) and stop.
+`Review-state: ready-to-apply` fixes that skipped review) and stop.
 
 ### Step 3: Assemble the review material for each fix
 
-For each awaiting-review fix, gather everything below from the branch and its
-ticket. All commands run against the branch versus the base it was cut from
+For each awaiting-review fix, gather everything below from the branch (the diff)
+and its **main-tree** ticket (the ask, `## Resolution`, verdict). All commands run
+against the branch versus the base it was cut from
 (`HEAD...ticket/NNNN-<slug>`; read the base from `git worktree list` / the branch's
 merge-base if needed). The review material comprises **three required items plus
 four accepted extra categories**:
@@ -78,7 +87,7 @@ four accepted extra categories**:
 5. **Verification evidence + reviewer provenance** — which verification commands
    ran and their result; which reviewer graded it (Codex CLI or the Sonnet
    evaluator), its verdict, and the `human-review: recommended | optional` signal —
-   so you need not re-run to trust the PASS. (Read these from the branch ticket's
+   so you need not re-run to trust the PASS. (Read these from the main-tree ticket's
    `## Resolution` / `Evaluator:` line.)
 6. **Change map** — `git diff --stat HEAD...ticket/NNNN-<slug>` plus a one-line
    rationale per file, as a map before the full diff, with any added/changed
@@ -124,15 +133,11 @@ behavior — do not hand-build the HTML in this file):
 
 For each fix, after presenting its material, let the user choose one of:
 
-- **approve** → move it to `ready-to-apply` (leave the branch, worktree, and lock
-  in place for `/ticket-apply`):
-
-  ```
-  ${CLAUDE_PLUGIN_ROOT}/scripts/ticket-state.sh --dir <ticket-dir> transition NNNN --from awaiting-review --to ready-to-apply
-  ```
-
-  Commit this status change on the branch (so the branch ticket reflects
-  `ready-to-apply`).
+- **approve** → rewrite the marker in the **main-tree** ticket's `## Resolution`
+  from `Review-state: awaiting-review` to `Review-state: ready-to-apply` (leave the
+  branch, worktree, and lock in place for `/ticket-apply`). This is a direct edit to
+  the ticket prose — not a `status:` transition (`status:` stays `open`); the
+  main-tree edit stays dirty and is committed by `/ticket-apply` at land time.
 
 - **reject** → the human is overriding a fix that **already passed the independent
   evaluator**, so the mechanical assumption was likely wrong and a plain re-`fix`
@@ -145,14 +150,15 @@ For each fix, after presenting its material, let the user choose one of:
   ${CLAUDE_PLUGIN_ROOT}/scripts/ticket-state.sh --dir <ticket-dir> release NNNN --force
   ```
 
-  Then in the **main-tree** ticket file (still `status: open`), set its `## Triage`
+  Then in the **main-tree** ticket file (still `status: open`), **strip the
+  `## Resolution` markers the attempt wrote** (the `Evaluator:` line, the
+  `human-review:` signal, and the `Review-state:` marker) and set its `## Triage`
   to `Mechanical fix: no` / `Requires user decision: yes` with a note quoting the
   human's reason for rejecting. Suggest `/grill-with-ticket NNNN` to re-plan rather
-  than another mechanical `/ticket-fix`. (The `awaiting-review` status lived only
-  on the discarded branch, so the main-tree ticket stays `open` — no status edit
-  needed there.)
+  than another mechanical `/ticket-fix`. (The review-gate progress lived only in
+  those markers, so the ticket stays `open` — no status edit needed.)
 
-- **defer** → do nothing; the fix stays `awaiting-review` for a later
+- **defer** → do nothing; the fix stays `Review-state: awaiting-review` for a later
   `/ticket-review`.
 
 Accept a blanket choice ("approve all") or per-fix decisions.
@@ -161,9 +167,9 @@ Accept a blanket choice ("approve all") or per-fix decisions.
 
 | Result | Ticket | Title | Detail |
 |--------|--------|-------|--------|
-| Approved | #NNNN | ... | now `ready-to-apply` — run `/ticket-apply` |
-| Rejected | #NNNN | ... | discarded; ticket back to `open`, needs a user decision (`/grill-with-ticket`) |
-| Deferred | #NNNN | ... | still `awaiting-review` |
+| Approved | #NNNN | ... | now `Review-state: ready-to-apply` — run `/ticket-apply` |
+| Rejected | #NNNN | ... | discarded; markers stripped, ticket stays `open`, needs a user decision (`/grill-with-ticket`) |
+| Deferred | #NNNN | ... | still `Review-state: awaiting-review` |
 
 End with the next step: "Run `/ticket-apply` to land the approved fixes."
 
@@ -171,19 +177,23 @@ End with the next step: "Run `/ticket-apply` to land the approved fixes."
 
 - **Human-only.** `disable-model-invocation: true` — this is a human-review step,
   not something Claude self-invokes.
-- **Approving does not merge.** It only moves a fix to `ready-to-apply`; the merge
-  is `/ticket-apply`'s job (the single human-invoked place the plugin commits to
-  your branch). Review answers "should this land?"; apply is the consequence.
+- **Approving does not merge.** It only rewrites the `Review-state:` marker to
+  `ready-to-apply`; the merge is `/ticket-apply`'s job (the single human-invoked
+  place the plugin commits to your branch). Review answers "should this land?";
+  apply is the consequence.
 - **Reject is a re-plan, not a retry.** Because the fix already passed the
   independent evaluator, a human reject means the ticket was mis-triaged as
   mechanical — send it back to human planning, don't re-`fix` it blindly.
 - **Skip is decided upstream, not here.** Fixes the reviewer marked
-  `human-review: optional` never enter `awaiting-review` — `/ticket-fix` sends them
-  straight to `ready-to-apply`. `/ticket-apply` lists those distinctly so they
-  still get the final human merge action. `/ticket-review` only handles fixes that
-  need a human look.
-- **Status is script-owned.** Never edit the `status:` line or `git mv` a ticket by
-  hand — always use `ticket-state.sh transition`.
+  `human-review: optional` never get `Review-state: awaiting-review` — `/ticket-fix`
+  marks them `ready-to-apply` directly. `/ticket-apply` lists those distinctly so
+  they still get the final human merge action. `/ticket-review` only handles fixes
+  that need a human look.
+- **The marker is prose, the status is script-owned.** The `Review-state:` marker
+  is an ordinary `## Resolution` line, edited directly — the ticket's `status:`
+  stays `open` throughout review. Never edit the `status:` line or `git mv` a ticket
+  by hand — the `open → resolved --move` at apply goes through
+  `ticket-state.sh transition`.
 - **Cross-clone limit**: a fix built in a different clone (e.g. a cloud run) has no
   local worktree/branch here and will not appear. Bring it across with ordinary git
   and review it as a normal PR.

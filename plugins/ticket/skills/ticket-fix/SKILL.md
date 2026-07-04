@@ -1,6 +1,6 @@
 ---
 name: ticket-fix
-description: "Implement fixes for tickets triaged as mechanically fixable. Trivial fixes edit in place; non-trivial fixes run in an isolated git worktree where the work is committed as it goes, checked by an independent reviewer (the Codex CLI when available, else a Sonnet evaluator subagent), and landed on your branch only via /ticket-apply. Claims each ticket with a lock so parallel runs don't collide. Does not merge to your branch."
+description: "Implement fixes for tickets triaged as mechanically fixable. Trivial fixes edit in place; non-trivial fixes run in an isolated git worktree that carries source + tests only (the ticket stays in the main tree), checked by an independent reviewer (the Codex CLI when available, else a Sonnet evaluator subagent), and landed on your branch only via /ticket-apply. Review-gate progress is a Review-state marker in the ticket's Resolution, not a status. Claims each ticket with a lock so parallel runs don't collide. Does not merge to your branch."
 argument-hint: "[ticket-number]"
 allowed-tools: Bash(*) Read Edit Write Glob Grep
 ---
@@ -14,11 +14,15 @@ main conversation lean. Two paths:
 - **In-place** — a trivial change (one file, a few lines) is edited directly in
   the working tree, leaving it dirty for `/commit-session`, exactly as before.
 - **Worktree** — a non-trivial change is built in an isolated git worktree on a
-  `ticket/NNNN-<slug>` branch, checked by an independent **evaluator** subagent,
-  and committed to that branch. On PASS it moves to `awaiting-review` (or
-  `ready-to-apply` when the reviewer marks review skippable). It reaches your
-  branch only when you run `/ticket-apply` — never automatically; the human review
-  in between happens through `/ticket-review`.
+  `ticket/NNNN-<slug>` branch that carries **source + tests only**; the ticket
+  file itself never rides the branch — it stays in the main tree, where the parent
+  records the fix's progress. The change is checked by an independent **evaluator**
+  subagent and committed to that branch. On PASS the parent writes a
+  `Review-state:` marker (`awaiting-review`, or `ready-to-apply` when the reviewer
+  marks review skippable) into the main-tree ticket's `## Resolution` — the ticket
+  `status:` stays `open`. It reaches your branch only when you run `/ticket-apply`
+  — never automatically; the human review in between happens through
+  `/ticket-review`.
 
 This skill **does not merge or commit to your current branch**. All ticket
 `status` changes go through the bundled `ticket-state.sh` script, and every
@@ -103,14 +107,13 @@ For each claimed non-trivial ticket, the parent:
 
    (The second claim is idempotent for the same owner; it records the worktree/branch in the lock for later staleness checks.)
 
-   **Precondition — the ticket must be committed on the base.** The branch is cut from the current HEAD; if `doc/tickets/NNNN-*.md` is untracked or has uncommitted changes there, the worktree will not contain it, the resolved-move will run on a divergent copy, and a stale `open` copy is left in the main tree that duplicates the ticket at merge. Before branching, check `git status --porcelain doc/tickets/NNNN-*.md`; if it is dirty or untracked, tell the user to commit the ticket first (e.g. `/commit-session`). `/ticket-apply` also removes a stale copy defensively, but committing the ticket first is the clean path.
+   The ticket file **stays in the main tree** — it never rides the `ticket/NNNN` branch. The branch carries source + tests only, so its state on the base doesn't matter here: there is no ticket-file merge, no divergent resolved-move, and no stale-copy reconciliation. The fix runs with no precondition and never halts to ask you to commit the ticket first.
 
-2. **Dispatch the generator subagent.** Its prompt MUST include: the full ticket text; the absolute worktree path `$WT` with an instruction to `cd "$WT"` **first** and run everything there; a pointer to read the host `CLAUDE.md`; the spec path (if any); the verification commands; the *Test principles*; and these steps. The generator:
-   - `cd "$WT"`, then `ticket-state.sh --dir <ticket-dir> transition NNNN --from open --to in-progress`.
+2. **Dispatch the generator subagent.** Its prompt MUST include: the full ticket text; the absolute worktree path `$WT` with an instruction to `cd "$WT"` **first** and run everything there; a pointer to read the host `CLAUDE.md`; the spec path (if any); the verification commands; the *Test principles*; and these steps. The generator commits **source + tests only** — it never touches the ticket file (no status transition, no `## Resolution`, no ticket commit); the ticket stays in the main tree and the parent records progress there (Step 4). The generator:
+   - `cd "$WT"`.
    - Implement the minimal fix (steps b–e above).
-   - **Commit the fix proactively.** Once verification passes, stage the specific changed source and test files (never `git add -A`) and commit them to the branch with a Conventional Commits message. The branch is isolated and disposable — it is *not* your current branch — so committing is safe and expected: commit the finished work, don't leave it sitting uncommitted in the worktree.
-   - Resolve on the branch: `ticket-state.sh --dir <ticket-dir> transition NNNN --from in-progress --to resolved --move`, write a `## Resolution` section (what changed, tests added, spec updates), then commit the ticket file as a second commit (a `chore(ticket):`-style message).
-   - Leave the worktree clean (everything committed) before reporting files changed, tests added, and the verification result.
+   - **Commit the fix proactively.** Once verification passes, stage the specific changed source and test files (never `git add -A`, and never the ticket file) and commit them to the branch with a Conventional Commits message. The branch is isolated and disposable — it is *not* your current branch — so committing is safe and expected: commit the finished work, don't leave it sitting uncommitted in the worktree.
+   - Leave the worktree clean (everything committed) before reporting files changed, tests added, and the verification result. Do **not** transition the ticket or write `## Resolution` — that is the parent's job on the main-tree ticket.
 
 3. **Review the fix — Codex CLI first, Sonnet evaluator as fallback.**
    - **If the Codex CLI is available** (`command -v codex` succeeds), try it first. It is a non-Claude model, so its judgement is genuinely independent of the generator. From the fix's worktree (so the ticket branch is checked out), review the branch against the base it was cut from, with a bounded timeout (the review can be slow):
@@ -127,11 +130,11 @@ For each claimed non-trivial ticket, the parent:
    - **Sonnet evaluator path:** parse the `human-review: recommended | optional` line the evaluator already emitted (per its output contract). If it is missing or ambiguous, treat it as `recommended`.
    - **Codex path:** `codex review --base` uses Codex's built-in review and cannot emit a custom signal, so after a Codex **PASS**, obtain the signal from a **dedicated lightweight Sonnet skip-judge**: dispatch a second `subagent_type: ticket:ticket-evaluator` in "skip-eligibility only" mode. Its prompt MUST tell it to `cd "$WT"`, read the branch diff against its base, apply the four `optional` criteria above, **edit nothing and run no verification**, and return **only** a single `human-review: recommended | optional` line (no PASS/REJECT — Codex already owns that verdict). On any failure, empty, or ambiguous result, default to `recommended`.
 
-4. **On PASS**: the parent records the verdict — append an `Evaluator: PASS — <reviewer + what was run>` line and the `human-review: <recommended|optional>` signal to the branch ticket's `## Resolution` and commit it — then **route on the pair**, keeping the branch, worktree, and claim lock in place either way:
-   - **PASS + `optional`** → `ticket-state.sh --dir <ticket-dir> transition NNNN --from in-progress --to ready-to-apply` (review skipped — low-risk). The fix is ready for `/ticket-apply`.
-   - **PASS + `recommended`** → `ticket-state.sh --dir <ticket-dir> transition NNNN --from in-progress --to awaiting-review`. The fix awaits human review via `/ticket-review`.
+4. **On PASS**: the parent records the verdict on the **main-tree** ticket (whose `status:` stays `open`) — write a `## Resolution` section (what changed, tests added, spec updates, drawn from the generator's report) with an `Evaluator: PASS — <reviewer + what was run>` line and the `human-review: <recommended|optional>` signal — then **route on the pair** by writing a `Review-state:` marker into that same `## Resolution`, keeping the branch, worktree, and claim lock in place either way:
+   - **PASS + `optional`** → `Review-state: ready-to-apply` (review skipped — low-risk). The fix is ready for `/ticket-apply`.
+   - **PASS + `recommended`** → `Review-state: awaiting-review`. The fix awaits human review via `/ticket-review`.
 
-   (Neither transition uses `--move`: the file stays in `<ticket-dir>/` on the branch; the `resolved`-move happens at apply time. Commit the status change on the branch.)
+   The marker is a line in `## Resolution` beside `Evaluator:` / `human-review:`; it is **not** a `status:` value (the branch carries no ticket, and `status:` stays `open` until `/ticket-apply` does the `open → resolved --move` at land time). These main-tree edits stay dirty for now — do not commit them here; `/ticket-apply` commits the ticket when the fix lands.
 
 5. **On REJECT** (*bounce back*): do not force it. In the **main-tree** ticket file, set the `## Triage` to `Mechanical fix: no` / `Requires user decision: yes` with a note quoting the reviewer's reason, and keep `status: open`. Then discard the attempt and release the lock:
 
@@ -160,14 +163,14 @@ After each subagent, verify its output before moving on (inspect the branch diff
 
 #### Awaiting review (worktree, PASS + review recommended)
 
-| Ticket | Title | Branch | Status | Evaluator |
-|--------|-------|--------|--------|-----------|
+| Ticket | Title | Branch | Review-state | Evaluator |
+|--------|-------|--------|--------------|-----------|
 | #NNNN  | ...   | `ticket/NNNN-<slug>` | `awaiting-review` | PASS — ... |
 
 #### Ready to apply (worktree, PASS + review skipped — low-risk)
 
-| Ticket | Title | Branch | Status | Evaluator |
-|--------|-------|--------|--------|-----------|
+| Ticket | Title | Branch | Review-state | Evaluator |
+|--------|-------|--------|--------------|-----------|
 | #NNNN  | ...   | `ticket/NNNN-<slug>` | `ready-to-apply` | PASS — ... (`human-review: optional`) |
 
 #### Fixed in place (dirty working tree)
@@ -196,11 +199,12 @@ End with the right next step(s):
 
 ## Notes
 
-- **Commit proactively in the worktree.** Isolation is exactly what makes committing safe, so once a worktree fix is done, commit it — the generator commits the fix (+ tests) and then the resolved ticket, and the evaluator commits its verdict, leaving the worktree clean. Do not leave finished work uncommitted. This only applies to the worktree path; the in-place path touches your current branch directly, so it must *not* auto-commit — it stays dirty for `/commit-session`.
-- **Does not touch your current branch.** Worktree commits land on their own `ticket/NNNN-<slug>` branch and reach your branch only through `/ticket-apply` (the human gate). The plugin's "never lands on your branch automatically" rule is upheld — only `/ticket-apply` merges.
-- **Review gate is worktree-only.** A worktree PASS lands in `awaiting-review` (review recommended → run `/ticket-review`) or `ready-to-apply` (review skipped — low-risk → run `/ticket-apply`). The file stays in `<ticket-dir>/` on the branch; the `resolved`-move happens later, at apply time. In-place (trivial) fixes never take these states — they go straight to `resolved` + dirty tree, gated by `/commit-session`.
-- **Status is script-owned.** Never edit the `status:` line or `git mv` a ticket by hand — always use `ticket-state.sh transition`, which keeps the `status ⇔ location` invariant.
+- **Commit proactively in the worktree.** Isolation is exactly what makes committing safe, so once a worktree fix is done, commit it — the generator commits the fix (+ tests) to the branch, leaving the worktree clean. Do not leave finished work uncommitted. The ticket file is **not** among those commits: it stays in the main tree, edited (dirty) by the parent, and is committed only by `/ticket-apply` at land time. This only applies to the worktree path; the in-place path touches your current branch directly, so it must *not* auto-commit — it stays dirty for `/commit-session`.
+- **The ticket stays main-resident.** The `ticket/NNNN-<slug>` branch carries source + tests only. The parent records the fix's progress on the main-tree ticket — the `## Resolution`, the `Evaluator:` verdict, and the `Review-state:` marker — while its `status:` stays `open`. This removes the old precondition (no ticket-file merge, no divergent resolved-move, no stale-copy cleanup) at the cost of the main tree showing the ticket file modified while a fix is in flight.
+- **Does not touch your current branch.** Worktree commits land on their own `ticket/NNNN-<slug>` branch and reach your branch only through `/ticket-apply` (the human gate). The plugin's "never lands on your branch automatically" rule is upheld — only `/ticket-apply` merges and commits the ticket's `open → resolved --move`.
+- **Review gate is worktree-only, tracked by a marker.** A worktree PASS gets a `Review-state:` marker in the main-tree ticket's `## Resolution`: `awaiting-review` (review recommended → run `/ticket-review`) or `ready-to-apply` (review skipped — low-risk → run `/ticket-apply`). The marker is not a `status:` value — `status:` stays `open`, and the `resolved`-move happens later, at apply time. In-place (trivial) fixes never take this path — they go straight to `resolved` + dirty tree, gated by `/commit-session`.
+- **Status is script-owned.** Never edit the `status:` line or `git mv` a ticket by hand — always use `ticket-state.sh transition`, which keeps the `status ⇔ location` invariant. (The `Review-state:` marker is ordinary `## Resolution` prose, edited directly — it is not a `status:` value.)
 - **Claim before work, release when done.** A ticket is locked for the whole fix→review→apply window; `/ticket-review` releases the lock on reject, `/ticket-apply` releases worktree locks on land/reject. Bounced and in-place fixes release their own lock.
-- **Evaluator separation is the point.** The agent that wrote the code never grades its own work; a separate reviewer that *runs* the change decides PASS **and** the `human-review` skip signal. Try the **Codex CLI** first (`codex review --base <base>` from the worktree) for a genuinely independent, non-Claude judgement; because Codex cannot emit a custom signal, a lightweight Sonnet skip-judge supplies `human-review:` after a Codex PASS. If Codex is unavailable or does not return a usable result (no auth, rate-limited, timeout, empty), fall back to the bundled `ticket:ticket-evaluator` subagent (Claude on **Sonnet**, adversarial by prompt), which emits both the verdict and the skip signal. A worktree fix with no PASS is neither `awaiting-review` nor `ready-to-apply`.
+- **Evaluator separation is the point.** The agent that wrote the code never grades its own work; a separate reviewer that *runs* the change decides PASS **and** the `human-review` skip signal. Try the **Codex CLI** first (`codex review --base <base>` from the worktree) for a genuinely independent, non-Claude judgement; because Codex cannot emit a custom signal, a lightweight Sonnet skip-judge supplies `human-review:` after a Codex PASS. If Codex is unavailable or does not return a usable result (no auth, rate-limited, timeout, empty), fall back to the bundled `ticket:ticket-evaluator` subagent (Claude on **Sonnet**, adversarial by prompt), which emits both the verdict and the skip signal. A worktree fix with no PASS gets no `Review-state:` marker at all.
 - **Do not skip user-decision tickets**, and keep each fix focused — if a fix organically wants to grow, that's a signal it isn't mechanical; bounce it back.
 - **Per-ticket subagent isolation is non-negotiable** — it keeps the skill usable on projects with many tickets without blowing up the parent context.

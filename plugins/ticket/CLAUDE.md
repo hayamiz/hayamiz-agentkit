@@ -14,9 +14,9 @@ tree and ride along with the code they describe.
 | `/grill-with-ticket` | Relentless one-question-at-a-time interview against an open ticket; crystallises decisions into `## Implementation Notes`. |
 | `/ticket-check`      | Read-only: list open tickets and their status.                                                                           |
 | `/ticket-triage`     | Classify each open ticket by complexity, mechanical-fix feasibility, and user input needed; recommends a fix strategy (in-place / worktree). |
-| `/ticket-fix`        | Implement mechanically-fixable tickets: trivial ones in place, non-trivial ones in isolated worktrees checked by an independent evaluator. On PASS routes to `awaiting-review` (or `ready-to-apply` when review is skippable). Claims tickets with locks. Does not merge to your branch. |
-| `/ticket-review`     | **Human-only.** Review each `awaiting-review` worktree fix (summary, impact, full diff, traceability, verification, risk — inline or as a Claude Artifact) and, on approval, move it to `ready-to-apply`. Does not merge. |
-| `/ticket-apply`      | **Human-only.** Merge the `ready-to-apply` worktree fixes into your current branch and move them to `resolved`. Never auto-merges. |
+| `/ticket-fix`        | Implement mechanically-fixable tickets: trivial ones in place, non-trivial ones in isolated worktrees (source + tests only; the ticket stays main-resident) checked by an independent evaluator. On PASS the parent writes a `Review-state:` marker (`awaiting-review`, or `ready-to-apply` when review is skippable) into the main-tree ticket's `## Resolution`. Claims tickets with locks. Does not merge to your branch. |
+| `/ticket-review`     | **Human-only.** Review each `Review-state: awaiting-review` worktree fix (summary, impact, full diff, traceability, verification, risk — inline or as a Claude Artifact) and, on approval, rewrite the marker to `ready-to-apply`. Does not merge. |
+| `/ticket-apply`      | **Human-only.** Merge the `Review-state: ready-to-apply` worktree fixes into your current branch, then move each ticket `open → resolved`. Never auto-merges. |
 | `/ticket-lint`       | Validate ticket frontmatter and the `status`⇔location invariant; inspect/clear claim locks. `--fix` for safe repairs.    |
 
 Typical flow on a new project:
@@ -27,9 +27,9 @@ Typical flow on a new project:
 /grill-with-ticket NNNN      # optional: stress-test the plan before fixing
 /ticket-check                # see state
 /ticket-triage               # classify open tickets
-/ticket-fix                  # fix mechanically fixable ones (worktree fixes → awaiting-review / ready-to-apply)
-/ticket-review               # human-review the awaiting-review worktree fixes → ready-to-apply
-/ticket-apply                # merge the ready-to-apply (worktree) fixes into your branch
+/ticket-fix                  # fix mechanically fixable ones (worktree fixes → Review-state: awaiting-review / ready-to-apply)
+/ticket-review               # human-review the awaiting-review worktree fixes → Review-state: ready-to-apply
+/ticket-apply                # merge the ready-to-apply (worktree) fixes into your branch, then open → resolved
 /commit-session              # commit the in-place fixes + resolved tickets
 ```
 
@@ -69,7 +69,7 @@ Each ticket file starts with YAML frontmatter:
 title: <one-line human-readable title>
 type: bug | feature | enhancement | refactor | docs | test | chore
 priority: critical | high | medium | low
-status: open | in-progress | blocked | awaiting-review | ready-to-apply | resolved
+status: open | in-progress | blocked | resolved
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
 ---
@@ -85,16 +85,19 @@ updated: YYYY-MM-DD
 ### Lifecycle
 
 - `open` → newly created, not yet triaged.
-- `in-progress` → being worked on (set by `/ticket-fix`).
+- `in-progress` → being worked on by an **in-place** fix (set by `/ticket-fix`).
 - `blocked` → waiting on external input; stays in `<ticket-dir>/`, not `resolved/`.
-- `awaiting-review` → a worktree fix passed the evaluator and needs human review
-  (set by `/ticket-fix`; branch-local). Stays in `<ticket-dir>/`, not `resolved/`.
-- `ready-to-apply` → reviewed-and-approved (via `/ticket-review`), or the reviewer
-  marked review skippable (low-risk); ready for `/ticket-apply` to merge.
-  Branch-local; stays in `<ticket-dir>/`, not `resolved/`.
 - `resolved` → landed on your branch; file moves to `<ticket-dir>/resolved/`. The
-  `resolved`-move now happens at **apply** time (on your current branch), not on
+  `resolved`-move happens at **apply** time (on your current branch), not on
   the throwaway `ticket/*` branch — so `resolved` honestly means "merged and done".
+
+A **worktree fix** does not use its own `status:` value: the ticket file is
+main-resident (it never rides the `ticket/*` branch), so its `status:` stays
+`open` for the whole fix→review→apply window. The review-gate progress is recorded
+as a `Review-state: awaiting-review | ready-to-apply` marker in the ticket's
+`## Resolution` (set by `/ticket-fix` on PASS, rewritten by `/ticket-review` on
+approve), and `/ticket-apply` transitions `open → resolved` when the fix lands.
+The active claim lock, not a `status:` value, marks a worktree fix as in flight.
 
 ## State Management & Isolation
 
@@ -109,7 +112,9 @@ state. Three layers:
   `$(git rev-parse --git-common-dir)/ticket-locks/NNNN/`). A second agent that
   tries the same ticket is refused. This separates *runtime ownership* (the
   lock) from *durable state* (the `status:` field), which matters because a
-  branch-local `status: in-progress` is invisible in the main tree until merged.
+  worktree fix keeps its ticket at `status: open` in the main tree for the whole
+  fix→review→apply window — the lock (plus the `## Resolution` `Review-state:`
+  marker) is what marks it as in flight, since `status:` alone cannot.
   Portable via `mkdir` atomicity — no `flock` dependency (macOS has none). Stale
   locks (older than `Lock TTL`, default 2h, or whose worktree is gone) are stolen
   with a warning.
@@ -166,15 +171,17 @@ The reviewer above answers "is this code correct?" — an **independent machine
 check**. It does not replace the **human** looking at the change before it lands.
 The two are now separate steps:
 
-- On PASS, `/ticket-fix` routes the worktree fix by a **`human-review` skip
-  signal** the reviewer emits alongside its verdict:
-  - `human-review: recommended` → `awaiting-review`. `/ticket-review` presents the
-    full review material (summary, functional impact, full diff, traceability,
-    verification/provenance, change map, risk — inline or as a Claude Artifact for
-    large diffs) and, on approval, moves it to `ready-to-apply`.
-  - `human-review: optional` → `ready-to-apply` directly (review skipped —
-    low-risk). `optional` requires ALL of: low-risk, no user-visible behavior
-    change, no security-sensitive surface, tests present; the default is
+- On PASS, `/ticket-fix` records the outcome on the main-tree ticket and sets a
+  `Review-state:` marker in its `## Resolution` by a **`human-review` skip signal**
+  the reviewer emits alongside its verdict (`status:` stays `open` either way):
+  - `human-review: recommended` → `Review-state: awaiting-review`. `/ticket-review`
+    presents the full review material (summary, functional impact, full diff,
+    traceability, verification/provenance, change map, risk — inline or as a Claude
+    Artifact for large diffs) and, on approval, rewrites the marker to
+    `ready-to-apply`.
+  - `human-review: optional` → `Review-state: ready-to-apply` directly (review
+    skipped — low-risk). `optional` requires ALL of: low-risk, no user-visible
+    behavior change, no security-sensitive surface, tests present; the default is
     conservative (`recommended` whenever in doubt). `/ticket-apply` still lists
     these distinctly so the human keeps the final merge action.
 - **Emitting the skip signal.** The Sonnet evaluator emits `human-review:` itself
@@ -216,14 +223,17 @@ The plugin never lands work on your current branch on its own:
   moved, source/test edits applied. Commit them with `/commit-session` (from the
   `commit-session` skill in this repo).
 - **Non-trivial fixes** are committed by `/ticket-fix` proactively onto
-  throwaway `ticket/NNNN-<slug>` branches — the fix and its tests, then the ticket
-  moved to `awaiting-review` / `ready-to-apply` (it stays in `<ticket-dir>/`, not
-  `resolved/`) — never your branch. Worktree isolation is what makes eager
-  committing safe. They reach your branch only when **you** run `/ticket-apply`,
-  which does a `git merge --no-ff` per approved ticket **and** the
-  `ready-to-apply → resolved --move` on your branch — the single, human-invoked
-  place the plugin commits to your branch. `/ticket-review` in between only moves
-  the branch ticket to `ready-to-apply`; it never touches your branch.
+  throwaway `ticket/NNNN-<slug>` branches — the fix and its tests, and **only**
+  those: the ticket file never rides the branch. Worktree isolation is what makes
+  eager committing safe. The ticket stays main-resident at `status: open`; on PASS
+  the parent writes its `## Resolution` + a `Review-state:` marker there (dirty, in
+  the main tree — this is the "pristine main tree during a fix" property, given up
+  so the ticket never has to be merged). The fix reaches your branch only when
+  **you** run `/ticket-apply`, which does a `git merge --no-ff` of the source-only
+  branch per approved ticket **and** the `open → resolved --move` (with its
+  ticket-file commit) on your branch — the single, human-invoked place the plugin
+  commits to your branch. `/ticket-review` in between only rewrites the marker to
+  `ready-to-apply` on the main-tree ticket; it never touches your branch.
 - Claim locks live under `.git` and are never committed.
 
 So the rule is now "never commits or merges to *your* branch automatically":
