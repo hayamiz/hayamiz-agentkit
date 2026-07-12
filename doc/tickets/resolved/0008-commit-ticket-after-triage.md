@@ -2,7 +2,7 @@
 title: Consolidate ticket-commit decisions at the review/apply human gates
 type: enhancement
 priority: medium
-status: ready-to-apply
+status: resolved
 created: 2026-07-04
 updated: 2026-07-12
 ---
