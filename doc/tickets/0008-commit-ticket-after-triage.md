@@ -2,9 +2,9 @@
 title: Consolidate ticket-commit decisions at the review/apply human gates
 type: enhancement
 priority: medium
-status: in-progress
+status: awaiting-review
 created: 2026-07-04
-updated: 2026-07-04
+updated: 2026-07-12
 ---
 
 ## Description
@@ -309,3 +309,25 @@ Verification (repo `## Verification` block, all pass):
 - `ticket-state.sh --dir doc/tickets lint --all` — 0 error(s), 0 warning(s).
 - `shellcheck` not installed in this image — skipped (kept out of the auto-run
   list per repo policy).
+
+Review (independent evaluator):
+
+- Reviewer: Sonnet `ticket:ticket-evaluator`. (The Codex CLI was auto-mode-denied
+  for its unsandboxed `sandbox_mode="danger-full-access"` run, so the skill's
+  Sonnet fallback ran instead.)
+- Verdict: **REJECT — overridden (bootstrap false-positive).** The REJECT rested
+  on this fix's own worktree branch carrying the ticket file (a D1/D9 "the ticket
+  never rides the branch" violation) and a resulting apply-time transition
+  mismatch. That is a **self-modification bootstrap artifact**, not a defect in
+  the delivered change: 0008 changes how `/ticket-fix` works, and the new
+  main-resident behavior only takes effect *after* 0008 is merged and the plugin
+  reloaded — so 0008 itself had to be built with the *current* ticket-on-branch
+  process, and the not-yet-active D1/D9 rule cannot bind the very commit that
+  introduces it. The evaluator confirmed the diff passes all verification and is
+  internally coherent and complete; its concrete "apply breaks" point is resolved
+  by the normal PASS routing step (below). Overridden by maintainer decision
+  (2026-07-06). 0008 lands via the *current* flow (branch-local `awaiting-review`
+  → `ready-to-apply`, still in cache `VALID_STATUS`); the new main-resident model
+  governs *future* tickets once this merges and the plugin reloads.
+- `human-review: recommended` — broad, user-visible workflow change → routed to
+  `awaiting-review` so `/ticket-review` gives it the final human look before land.
