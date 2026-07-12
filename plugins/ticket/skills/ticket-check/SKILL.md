@@ -50,3 +50,4 @@ Below the table, show:
 
 - This skill is read-only. Do not modify, move, or rewrite any ticket file, even to fix malformed frontmatter — report warnings and let the user or `/ticket-triage` address them.
 - Recognized status values default to `open`, `in-progress`, `blocked`, `resolved`. If `<ticket-dir>/CLAUDE.md` defines a different status vocabulary, honor that instead.
+- A worktree fix in flight keeps `status: open` (its review-gate progress lives in a `## Resolution` `Review-state:` marker, not the status field), so it appears here as an ordinary `open` ticket. Its active claim lock (`/ticket-lint`) and that marker distinguish it — this read-only skill does not inspect locks to annotate it.

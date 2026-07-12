@@ -33,7 +33,7 @@ PROG=${0##*/}
 TICKET_DIR=${TICKET_DIR:-}
 DEFAULT_TTL=7200 # seconds (2h)
 
-VALID_STATUS="open in-progress blocked awaiting-review ready-to-apply resolved"
+VALID_STATUS="open in-progress blocked resolved"
 VALID_TYPE="bug feature enhancement refactor docs test chore"
 VALID_PRIORITY="critical high medium low"
 
